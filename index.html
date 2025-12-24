@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0a12">
+    <meta name="description" content="Ring Squadron - A mobile-friendly ASCII top-down shooter">
+
+    <!-- PWA Support -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-title" content="Ring Squadron">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="icons/icon-192.png">
+
+    <title>Ring Squadron</title>
+
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- Prevent iOS zoom on double-tap -->
+    <style>
+        * { touch-action: manipulation; }
+    </style>
+</head>
+<body>
+    <!-- Rotate message for landscape -->
+    <div id="rotate-message">
+        <div>Please rotate your device</div>
+        <div style="font-size: 48px; margin: 20px;">📱</div>
+        <div>Portrait mode recommended</div>
+    </div>
+
+    <!-- Game container -->
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- UI Buttons -->
+    <button id="mute-btn" onclick="toggleMute()">SOUND: ON</button>
+    <button id="fullscreen-btn" onclick="toggleFullscreen()">FULLSCREEN</button>
+
+    <!-- Game Scripts -->
+    <script type="module" src="js/main.js"></script>
+
+    <script>
+        // Mute toggle
+        function toggleMute() {
+            if (window.game && window.game.audio) {
+                const muted = window.game.audio.toggleMute();
+                document.getElementById('mute-btn').textContent = muted ? 'SOUND: OFF' : 'SOUND: ON';
+            }
+        }
+
+        // Fullscreen toggle
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log('Fullscreen not available');
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Update fullscreen button text
+        document.addEventListener('fullscreenchange', () => {
+            const btn = document.getElementById('fullscreen-btn');
+            btn.textContent = document.fullscreenElement ? 'EXIT FS' : 'FULLSCREEN';
+        });
+
+        // Prevent default touch behaviors
+        document.addEventListener('touchmove', function(e) {
+            if (e.target.id === 'gameCanvas') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        // Wake lock to prevent screen from sleeping (if supported)
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    await navigator.wakeLock.request('screen');
+                }
+            } catch (err) {
+                console.log('Wake lock not available');
+            }
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                requestWakeLock();
+            }
+        });
+
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('Ring Squadron SW registered:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('Ring Squadron SW registration failed:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

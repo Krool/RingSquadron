@@ -1,0 +1,145 @@
+/* Ring Squadron - Mobile-First Styles */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #000;
+    font-family: 'Courier New', monospace;
+}
+
+/* Prevent pull-to-refresh and overscroll */
+body {
+    overscroll-behavior: none;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Game container */
+#game-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #0a0a12;
+}
+
+/* Game canvas */
+#gameCanvas {
+    display: block;
+    background-color: #0a0a12;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
+/* Loading screen */
+#loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #00ff88;
+    font-size: 24px;
+    text-align: center;
+}
+
+#loading.hidden {
+    display: none;
+}
+
+/* Mute button */
+#mute-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid #00ff88;
+    color: #00ff88;
+    padding: 8px 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 100;
+    touch-action: manipulation;
+}
+
+#mute-btn:hover {
+    background: rgba(0, 255, 136, 0.2);
+}
+
+#mute-btn:active {
+    background: rgba(0, 255, 136, 0.4);
+}
+
+/* Fullscreen button for mobile */
+#fullscreen-btn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid #00ff88;
+    color: #00ff88;
+    padding: 8px 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 100;
+    touch-action: manipulation;
+}
+
+#fullscreen-btn:hover {
+    background: rgba(0, 255, 136, 0.2);
+}
+
+/* Hide buttons during gameplay on small screens */
+@media (max-height: 500px) {
+    #mute-btn, #fullscreen-btn {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+}
+
+/* Landscape orientation message */
+#rotate-message {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #0a0a12;
+    color: #00ff88;
+    font-size: 18px;
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 1000;
+}
+
+/* Show rotate message in landscape on small screens */
+@media (orientation: landscape) and (max-height: 500px) {
+    #rotate-message {
+        display: flex;
+    }
+
+    #game-container {
+        display: none;
+    }
+}
+
+/* PWA styles */
+@media (display-mode: standalone) {
+    #fullscreen-btn {
+        display: none;
+    }
+}

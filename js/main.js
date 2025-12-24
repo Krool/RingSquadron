@@ -1,0 +1,1380 @@
+/**
+ * Ring Squadron - Main Game Entry Point
+ *
+ * This is the core game orchestrator that manages:
+ * - Game state machine (menu, modeSelect, playing, shop, gameover)
+ * - Entity lifecycle (player, allies, enemies, bullets, rings, powerups)
+ * - System coordination (collision, spawning, particles, audio)
+ * - Save/load functionality
+ *
+ * Architecture:
+ * - Game class is the main controller
+ * - Entities are managed in arrays and updated each frame
+ * - Systems are instantiated once and called as needed
+ * - State machine controls game flow
+ *
+ * @module main
+ */
+import { CONFIG } from './utils/config.js';
+import { SPRITES } from './utils/sprites.js';
+import { Renderer } from './renderer.js';
+import { InputHandler } from './input.js';
+import { AudioManager } from './audio.js';
+import { Player } from './entities/player.js';
+import { Ally } from './entities/ally.js';
+import { Enemy } from './entities/enemy.js';
+import { CollisionSystem } from './systems/collision.js';
+import { FormationSystem } from './systems/formation.js';
+import { SpawnerSystem } from './systems/spawner.js';
+import { ParticleSystem, ScreenEffects } from './systems/particles.js';
+import { ShopSystem, ShopUI } from './systems/shop.js';
+import { PowerUp, PowerUpManager, POWERUP_TYPES } from './entities/powerup.js';
+import { Boss, BossAttacks, getBossForWave } from './entities/boss.js';
+import { ComboSystem } from './systems/combo.js';
+import { SaveSystem, HighScoreUI } from './systems/save.js';
+import { WeaponSystem, WeaponSelectUI, WEAPONS } from './systems/weapons.js';
+import { HapticSystem } from './systems/haptics.js';
+import { GameModeManager, ModeSelectUI, GAME_MODES } from './systems/gamemode.js';
+import { CampaignManager, CAMPAIGN_LEVELS } from './systems/campaign.js';
+import { MusicSystem } from './systems/music.js';
+import { FloatingTextSystem } from './systems/floatingtext.js';
+
+class Game {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.setupCanvas();
+
+        // Initialize core systems
+        this.renderer = new Renderer(this.canvas);
+        this.input = new InputHandler(this.canvas);
+        this.audio = new AudioManager();
+        this.formation = new FormationSystem();
+        this.spawner = new SpawnerSystem(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+        this.particles = new ParticleSystem();
+        this.screenFx = new ScreenEffects();
+
+        // New systems
+        this.shop = new ShopSystem();
+        this.shopUI = new ShopUI(this.shop);
+        this.powerUpManager = new PowerUpManager();
+        this.combo = new ComboSystem();
+        this.save = new SaveSystem();
+        this.weapons = new WeaponSystem();
+        this.weaponSelectUI = new WeaponSelectUI(this.weapons);
+        this.haptics = new HapticSystem();
+        this.gameMode = new GameModeManager();
+        this.modeSelectUI = new ModeSelectUI();
+        this.music = new MusicSystem();
+        this.highScoreUI = new HighScoreUI(this.save);
+        this.floatingText = new FloatingTextSystem();
+
+        // Game state
+        this.state = 'menu'; // menu, modeSelect, playing, paused, shop, gameover
+        this.score = 0;
+        this.gold = 0;
+        this.totalGold = 0;
+        this.kills = 0;
+        this.ringsCollected = 0;
+        this.currentWave = 0;
+        this.waveAnnouncement = null;
+        this.waveAnnouncementTimer = 0;
+        this.playTime = 0; // Time spent in current game (seconds)
+        this.isNewLevelHighScore = false; // Flag for displaying "NEW HIGH SCORE!"
+        this.bossDefeated = false; // Track if boss was defeated this run
+
+        // Entities
+        this.player = new Player(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+        this.allies = [];
+        this.enemies = [];
+        this.playerBullets = [];
+        this.enemyBullets = [];
+        this.rings = [];
+        this.powerUps = [];
+        this.boss = null;
+        this.bossActive = false;
+        this.pendingBossBullets = []; // Queue for time-delayed boss bullets
+
+        // Timing
+        this.lastTime = 0;
+        this.shootingStarTimer = 0;
+        this.gameOverTimer = 0;
+        this.menuAnimTimer = 0; // For animated menu effects
+
+        // Visual effects
+        this.explosions = [];
+
+        // Load saved progress
+        this.loadProgress();
+
+        // Bind game loop
+        this.gameLoop = this.gameLoop.bind(this);
+
+        // Start
+        this.renderer.drawStartScreen();
+    }
+
+    setupCanvas() {
+        this.canvas.width = CONFIG.GAME_WIDTH;
+        this.canvas.height = CONFIG.GAME_HEIGHT;
+        this.resizeCanvas();
+        window.addEventListener('resize', () => this.resizeCanvas());
+    }
+
+    resizeCanvas() {
+        const container = this.canvas.parentElement;
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+
+        const gameAspect = CONFIG.GAME_WIDTH / CONFIG.GAME_HEIGHT;
+        const containerAspect = containerWidth / containerHeight;
+
+        let displayWidth, displayHeight;
+
+        if (containerAspect > gameAspect) {
+            displayHeight = containerHeight;
+            displayWidth = displayHeight * gameAspect;
+        } else {
+            displayWidth = containerWidth;
+            displayHeight = displayWidth / gameAspect;
+        }
+
+        this.canvas.style.width = `${displayWidth}px`;
+        this.canvas.style.height = `${displayHeight}px`;
+    }
+
+    start() {
+        this.audio.init();
+        this.audio.resume();
+        this.music.init();
+        this.music.resume();
+        this.reset();
+        this.state = 'playing';
+        // Don't call requestAnimationFrame here - gameLoop is already running
+        this.music.startNormalMusic();
+    }
+
+    reset() {
+        this.score = 0;
+        this.kills = 0;
+        this.ringsCollected = 0;
+        this.currentWave = 0;
+        this.waveAnnouncement = null;
+        this.playTime = 0;
+        this.isNewLevelHighScore = false;
+        this.bossDefeated = false;
+        this.player.reset(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+        this.allies = [];
+        this.enemies = [];
+        this.playerBullets = [];
+        this.enemyBullets = [];
+        this.rings = [];
+        this.powerUps = [];
+        this.boss = null;
+        this.bossActive = false;
+        this.pendingBossBullets = [];
+        this.explosions = [];
+        this.particles.clear();
+        this.spawner.reset();
+        this.input.reset();
+        this.combo.reset();
+        this.powerUpManager.clear();
+        this.gameMode.reset();
+
+        // Apply upgrades to player
+        this.shop.applyUpgrades(this.player);
+    }
+
+    loadProgress() {
+        const progress = this.save.loadProgress();
+        if (progress) {
+            this.gold = progress.gold || 0;
+            this.totalGold = progress.totalGold || 0;
+            this.shop.deserialize(progress.upgrades);
+            this.weapons.deserialize(progress);
+            this.combo.deserialize(progress);
+        }
+    }
+
+    saveProgress() {
+        this.save.saveProgress({
+            gold: this.gold,
+            totalGold: this.totalGold,
+            upgrades: this.shop.serialize(),
+            unlockedWeapons: this.weapons.unlockedWeapons,
+            maxCombo: this.combo.maxCombo,
+            highestWave: Math.max(this.currentWave, this.save.loadProgress()?.highestWave || 0)
+        });
+    }
+
+    openShop() {
+        if (this.gameMode.canUseShop()) {
+            this.state = 'shop';
+            this.shopUI.show();
+            this.music.setIntensity(0.2);
+        }
+    }
+
+    closeShop() {
+        this.state = 'playing';
+        this.shopUI.hide();
+        this.music.setIntensity(0.5);
+    }
+
+    purchaseUpgrade() {
+        const selected = this.shopUI.getSelectedUpgrade();
+        if (selected && this.shop.canAfford(selected.key, this.gold)) {
+            const cost = this.shop.purchase(selected.key, this.gold);
+            if (cost > 0) {
+                this.gold -= cost;
+                this.shop.applyUpgrades(this.player);
+                this.audio.playPowerUp();
+                this.haptics.purchase();
+                this.saveProgress();
+            }
+        }
+    }
+
+    gameLoop(currentTime) {
+        const deltaTime = currentTime - this.lastTime;
+        this.lastTime = currentTime;
+
+        // Apply time scale from screen effects
+        const scaledDelta = deltaTime * this.screenFx.getTimeScale();
+
+        // Always update stars and screen effects
+        this.renderer.updateStars(scaledDelta);
+        this.screenFx.update(scaledDelta);
+        this.particles.update(scaledDelta);
+        this.combo.update(scaledDelta);
+        this.powerUpManager.update();
+        this.floatingText.update(scaledDelta);
+
+        switch (this.state) {
+            case 'menu':
+            case 'modeSelect':
+                this.updateMenu(scaledDelta);
+                this.renderMenu();
+                break;
+            case 'playing':
+                this.update(scaledDelta, currentTime);
+                this.render();
+                break;
+            case 'shop':
+                this.updateShop(scaledDelta);
+                this.render();
+                break;
+            case 'gameover':
+                this.updateGameOver(scaledDelta);
+                this.render();
+                break;
+        }
+
+        requestAnimationFrame(this.gameLoop);
+    }
+
+    updateMenu(deltaTime) {
+        // Update menu animation timer
+        this.menuAnimTimer += deltaTime / 1000; // Convert to seconds
+
+        // Occasional shooting star on menu
+        this.shootingStarTimer += deltaTime;
+        if (this.shootingStarTimer > 3000) {
+            this.particles.shootingStar(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+            this.shootingStarTimer = 0;
+        }
+
+        // Update mode select UI animations
+        this.modeSelectUI.update(deltaTime);
+
+        // Handle touch/press states for button animations
+        const target = this.input.getTarget();
+        const hover = this.input.getHoverPosition();
+
+        // Update hover from mouse position
+        if (hover) {
+            this.modeSelectUI.updateHover(hover.y);
+        } else if (target) {
+            this.modeSelectUI.updateHover(target.y);
+        } else {
+            this.modeSelectUI.updateHover(null);
+        }
+
+        // Handle press state (mouse click or touch)
+        if (target && this.input.isPressed()) {
+            this.modeSelectUI.onPressStart(target.y);
+        } else {
+            this.modeSelectUI.onPressEnd();
+        }
+
+        // Check for tap to select a mode
+        if (this.input.checkTap()) {
+            if (target) {
+                const selectedMode = this.modeSelectUI.getModeAtY(target.y);
+
+                if (selectedMode) {
+                    this.gameMode.setMode(selectedMode);
+                    this.screenFx.flash('#ffffff', 0.3);
+                    this.haptics.medium();
+                    this.start();
+                }
+            }
+        }
+    }
+
+    // Legacy support - redirect to menu
+    updateModeSelect(deltaTime) {
+        this.state = 'menu';
+        this.updateMenu(deltaTime);
+    }
+
+    renderMenu() {
+        // Get stats for display
+        const savedStats = this.save.getStatistics();
+        const highScores = this.save.getHighScores();
+        const stats = {
+            highScore: highScores.length > 0 ? highScores[0].score : 0,
+            totalKills: savedStats.totalKills || 0,
+            gamesPlayed: savedStats.gamesPlayed || 0
+        };
+
+        // Get touch/hover position for hover effects
+        const hover = this.input.getHoverPosition();
+        const target = this.input.getTarget();
+        const hoverY = hover ? hover.y : (target ? target.y : null);
+
+        // Render menu with integrated mode selection
+        this.renderer.drawStartScreen(this.menuAnimTimer, stats, this.modeSelectUI, hoverY);
+        this.particles.draw(this.canvas.getContext('2d'));
+    }
+
+    updateShop(deltaTime) {
+        if (this.input.checkTap()) {
+            // Check if tap is on an upgrade
+            this.purchaseUpgrade();
+        }
+
+        // Simple escape from shop
+        const target = this.input.getTarget();
+        if (target && target.y > CONFIG.GAME_HEIGHT - 80) {
+            this.closeShop();
+        }
+    }
+
+    updateGameOver(deltaTime) {
+        // Wait for delay before allowing restart
+        if (this.gameOverTimer > 0) {
+            this.gameOverTimer -= deltaTime;
+            this.input.checkTap(); // Consume any taps during delay
+            return;
+        }
+
+        if (this.input.checkTap()) {
+            this.screenFx.flash('#ffffff', 0.3);
+            this.haptics.light();
+
+            // Save high score
+            if (this.gameMode.canSaveHighScore()) {
+                const rank = this.save.saveHighScore({
+                    score: this.score,
+                    wave: this.currentWave,
+                    kills: this.kills,
+                    gameMode: this.gameMode.currentMode
+                });
+
+                // Also save level-specific score
+                const levelId = this.gameMode.currentMode === 'campaign'
+                    ? (this.campaign ? this.campaign.currentLevelIndex : 0)
+                    : 'default';
+                this.isNewLevelHighScore = this.save.saveLevelScore(
+                    this.gameMode.currentMode,
+                    levelId,
+                    {
+                        score: this.score,
+                        wave: this.currentWave,
+                        kills: this.kills,
+                        time: this.playTime || 0,
+                        bossDefeated: this.bossDefeated || false,
+                        healthRemaining: this.player ? Math.floor((this.player.health / this.player.maxHealth) * 100) : 0
+                    }
+                );
+            }
+
+            // Update statistics
+            this.save.updateStatistics({
+                goldEarned: this.totalGold,
+                kills: this.kills,
+                ringsCollected: this.ringsCollected,
+                wave: this.currentWave,
+                maxCombo: this.combo.maxCombo
+            });
+
+            this.saveProgress();
+            this.start();
+        }
+    }
+
+    spawnEnemy(x, y, type) {
+        const enemy = new Enemy(x, y, type);
+        this.enemies.push(enemy);
+    }
+
+    update(deltaTime, currentTime) {
+        const dt = Math.min(deltaTime, 50);
+
+        // Track play time (in seconds)
+        this.playTime += dt / 1000;
+
+        // Check for wave change
+        const newWave = this.spawner.waveNumber;
+        if (newWave !== this.currentWave) {
+            this.currentWave = newWave;
+            this.waveAnnouncement = `WAVE ${this.currentWave}`;
+            this.waveAnnouncementTimer = 2000;
+            this.particles.waveStart(CONFIG.GAME_WIDTH);
+            this.screenFx.flash('#4488ff', 0.2, 0.03);
+            this.audio.playWaveStart();
+            this.haptics.waveComplete();
+
+            // Check for boss wave
+            if (this.gameMode.shouldSpawnBoss(this.currentWave)) {
+                this.spawnBoss();
+            }
+
+            // Open shop between waves (every 3 waves)
+            if (this.currentWave > 1 && this.currentWave % 3 === 1 && this.gameMode.canUseShop()) {
+                // Could show shop prompt here
+            }
+        }
+
+        // Update wave announcement
+        if (this.waveAnnouncementTimer > 0) {
+            this.waveAnnouncementTimer -= dt;
+            if (this.waveAnnouncementTimer <= 0) {
+                this.waveAnnouncement = null;
+            }
+        }
+
+        // Occasional shooting star
+        this.shootingStarTimer += dt;
+        if (this.shootingStarTimer > 5000 + Math.random() * 5000) {
+            this.particles.shootingStar(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+            this.shootingStarTimer = 0;
+        }
+
+        // Update music intensity
+        this.music.updateGameplayIntensity(this.currentWave, this.enemies.length, this.bossActive);
+
+        // Update spawner (skip if boss is active)
+        if (!this.bossActive) {
+            const difficulty = this.spawner.getDifficulty() * this.gameMode.getDifficultyMultiplier(this.currentWave);
+            const allyCount = this.allies.filter(a => a.active).length;
+            const spawnRateMult = this.gameMode.getSpawnRateMultiplier();
+            this.spawner.update(currentTime, this.enemies, this.rings, difficulty, allyCount, spawnRateMult);
+        }
+
+        // Update boss
+        if (this.boss && this.boss.active) {
+            this.boss.update(dt);
+            this.updateBossAttacks(currentTime);
+        }
+
+        // Process pending boss bullets (game-time scheduling)
+        this.processPendingBossBullets(dt);
+
+        // Get power-up modifiers
+        const fireRateMult = this.powerUpManager.getFireRateMultiplier();
+        const hasSpread = this.powerUpManager.hasSpreadShot();
+
+        // Update player with weapon system - only move while dragging
+        const target = this.input.isActive() ? this.input.getTarget() : null;
+        this.player.update(dt, target, currentTime);
+
+        // Check for swipe to cycle weapons
+        const swipeDir = this.input.checkHorizontalSwipe();
+        if (swipeDir !== 0) {
+            this.weapons.cycleWeapon(swipeDir);
+            this.floatingText.add(this.player.x, this.player.y - 40, this.weapons.getCurrentWeapon().name, {
+                color: '#00ffff',
+                size: 12,
+                duration: 1000
+            });
+            this.audio.playPowerUp();
+        }
+
+        // Fire using weapon system
+        if (this.weapons.canFire(currentTime, fireRateMult)) {
+            const bullets = this.weapons.fire(
+                this.player.x,
+                this.player.y - this.player.height / 2,
+                currentTime,
+                this.player.bulletDamage - CONFIG.PLAYER_BULLET_DAMAGE, // Upgrade bonus
+                hasSpread
+            );
+            this.playerBullets.push(...bullets);
+            this.audio.playShoot();
+            this.haptics.light();
+        }
+
+        // Player engine trail (centered at bottom of ship)
+        if (this.player.active && Math.random() > 0.5) {
+            this.particles.engineTrail(
+                this.player.x,
+                this.player.y + this.player.height / 2,
+                '#00aaff'
+            );
+        }
+
+        // Update allies with engine trails
+        // Calculate damage multiplier for large ally counts
+        const allyDamageMult = this.getAllyDamageMultiplier();
+        const activeAllyCount = this.allies.filter(a => a.active).length;
+
+        // Only update/fire from displayed allies (capped at ALLY_DISPLAY_CAP)
+        // Excess allies contribute to damage multiplier but don't fire
+        let updatedAllies = 0;
+        for (const ally of this.allies) {
+            if (!ally.active) continue;
+
+            // Only update allies within display cap
+            if (updatedAllies >= CONFIG.ALLY_DISPLAY_CAP) {
+                // Move excess allies to follow formation but don't fire
+                const formationPos = this.formation.getFormationPosition(
+                    this.player.x,
+                    this.player.y,
+                    ally.formationIndex
+                );
+                ally.x = formationPos.x;
+                ally.y = formationPos.y;
+                updatedAllies++;
+                continue;
+            }
+
+            const formationPos = this.formation.getFormationPosition(
+                this.player.x,
+                this.player.y,
+                ally.formationIndex
+            );
+            const allyBullets = ally.update(dt, formationPos.x, formationPos.y, currentTime);
+            if (allyBullets.length > 0) {
+                // Apply damage multiplier from ally count scaling
+                for (const bullet of allyBullets) {
+                    bullet.damage = Math.floor(bullet.damage * allyDamageMult);
+                }
+                this.playerBullets.push(...allyBullets);
+            }
+
+            // Ally engine trails (less frequent, centered at bottom)
+            if (Math.random() > 0.8) {
+                this.particles.engineTrail(ally.x, ally.y + ally.height / 2, '#00ff88', 0.5);
+            }
+            updatedAllies++;
+        }
+
+        // Update enemies
+        const spawnCallback = this.spawnEnemy.bind(this);
+        for (const enemy of this.enemies) {
+            const enemyBullets = enemy.update(dt, currentTime, this.player.x, this.player.y, spawnCallback);
+            if (enemyBullets.length > 0) {
+                this.enemyBullets.push(...enemyBullets);
+                // Play type-specific enemy sounds
+                this.playEnemyTypeSound(enemy);
+            }
+
+            // Enemy engine trails (inverted - going down)
+            if (enemy.onScreen && Math.random() > 0.85) {
+                this.particles.addParticle(enemy.x, enemy.y - 15, {
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: -1 - Math.random(),
+                    life: 0.2,
+                    decay: 0.04,
+                    size: 1.5,
+                    color: '#ff4444',
+                    friction: 0.95
+                });
+            }
+        }
+
+        // Update power-ups
+        for (const powerUp of this.powerUps) {
+            powerUp.update(dt);
+
+            // Magnet effect - attract power-ups to player
+            if (this.powerUpManager.hasMagnet()) {
+                const dx = this.player.x - powerUp.x;
+                const dy = this.player.y - powerUp.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 150 && dist > 0) {
+                    powerUp.x += (dx / dist) * 3;
+                    powerUp.y += (dy / dist) * 3;
+                }
+            }
+        }
+
+        // Update bullets with trails
+        for (const bullet of this.playerBullets) {
+            bullet.update(dt);
+            if (bullet.active && Math.random() > 0.7) {
+                this.particles.bulletTrail(bullet.x, bullet.y, true);
+            }
+        }
+        for (const bullet of this.enemyBullets) {
+            bullet.update(dt);
+            if (bullet.active && Math.random() > 0.7) {
+                this.particles.bulletTrail(bullet.x, bullet.y, false);
+            }
+        }
+
+        // Update rings
+        for (const ring of this.rings) {
+            ring.update(dt);
+        }
+
+        this.handleCollisions();
+        this.cleanup();
+
+        // Check player death
+        if (!this.player.active) {
+            // Check if we have extra lives
+            if (this.gameMode.loseLife()) {
+                // Respawn player with remaining lives
+                this.player.reset(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+                this.shop.applyUpgrades(this.player);
+                this.screenFx.flash('#ffffff', 0.3);
+                this.floatingText.add(this.player.x, this.player.y - 40, `${this.gameMode.getLives()} LIVES LEFT`, {
+                    color: '#ffdd00',
+                    size: 14,
+                    duration: 2000
+                });
+                // Brief invincibility after respawn
+                this.player.invincibleTimer = 2000;
+            } else {
+                // No lives left - game over
+                this.state = 'gameover';
+                this.gameOverTimer = 1500; // 1.5 second delay before allowing restart
+                this.audio.playGameOver();
+                this.screenFx.shake(15, 0.5);
+                this.screenFx.flash('#ff0000', 0.5, 0.02);
+                this.particles.explosion(this.player.x, this.player.y, 2);
+                // Reset input to prevent accidental immediate restart
+                this.input.reset();
+            }
+        }
+    }
+
+    handleCollisions() {
+        // Player bullets vs boss
+        if (this.boss && this.boss.active) {
+            for (const bullet of this.playerBullets) {
+                if (!bullet.active) continue;
+                const bossBounds = this.boss.getBounds();
+                const bulletBounds = bullet.getBounds();
+                if (CollisionSystem.checkAABB(bossBounds, bulletBounds)) {
+                    bullet.active = bullet.piercing || false;
+                    const killed = this.boss.takeDamage(bullet.damage);
+                    this.particles.spark(bullet.x, bullet.y, '#ffff00');
+                    this.haptics.medium();
+
+                    if (killed) {
+                        this.onBossDefeated();
+                    }
+                }
+            }
+        }
+
+        // Player bullets vs enemies
+        CollisionSystem.checkBulletCollisions(
+            this.playerBullets,
+            this.enemies,
+            (bullet, enemy) => {
+                // Check if shield absorbed the hit
+                const hadShield = enemy.shieldActive;
+                const killed = enemy.takeDamage(bullet.damage);
+                this.particles.spark(bullet.x, bullet.y, '#ffff00');
+
+                // Play shield hit sound if shield absorbed
+                if (hadShield && !killed) {
+                    this.audio.playShieldHit();
+                }
+
+                if (killed) {
+                    // Apply combo and multipliers
+                    const comboMult = this.combo.addKill();
+                    const goldMult = this.gameMode.getGoldMultiplier() * this.powerUpManager.getGoldMultiplier() * this.combo.getGoldMultiplier();
+
+                    this.score += Math.floor(enemy.score * comboMult);
+                    const goldEarned = Math.floor(enemy.gold * goldMult);
+                    this.gold += goldEarned;
+                    this.totalGold += goldEarned;
+                    this.kills++;
+
+                    // Floating text for gold earned
+                    this.floatingText.gold(enemy.x, enemy.y, goldEarned);
+
+                    // Show combo if notable
+                    if (this.combo.count >= 5) {
+                        this.floatingText.combo(enemy.x, enemy.y - 20, this.combo.count);
+                    }
+
+                    this.audio.playExplosion();
+                    this.haptics.enemyKill();
+                    this.particles.explosion(enemy.x, enemy.y, enemy.type === 'TANK' ? 1.5 : 1);
+                    this.screenFx.shake(3, 0.15);
+
+                    // Chance to drop power-up
+                    if (Math.random() < 0.08) {
+                        this.spawnPowerUp(enemy.x, enemy.y);
+                    }
+
+                    // Bonus: small flash on kill
+                    if (enemy.type === 'TANK' || enemy.type === 'CARRIER') {
+                        this.screenFx.flash('#ff8800', 0.15, 0.05);
+                    }
+                }
+            }
+        );
+
+        // Player bullets vs rings
+        CollisionSystem.checkBulletRingCollisions(
+            this.playerBullets,
+            this.rings,
+            (bullet, ring) => {
+                if (ring.increaseValue()) {
+                    this.audio.playRingIncrease();
+                    this.particles.spark(bullet.x, bullet.y, '#ffdd00');
+                    this.floatingText.ringIncrease(ring.x, ring.y - 15, ring.value);
+                }
+            }
+        );
+
+        // Player vs rings
+        CollisionSystem.checkEntityRingCollisions(
+            [this.player],
+            this.rings,
+            (player, ring) => {
+                // Handle multiplier gates (x2 or /2)
+                if (ring.isMultiplierGate()) {
+                    ring.collect();
+                    this.ringsCollected++;
+                    const currentAllies = this.allies.filter(a => a.active).length;
+
+                    if (ring.gateType === 'multiply') {
+                        // x2 gate - double allies
+                        this.audio.playPowerUp();
+                        this.particles.ringCollect(ring.x, ring.y, true);
+                        this.screenFx.flash('#ffdd00', 0.2, 0.04);
+                        this.haptics.allyJoin();
+
+                        const toAdd = currentAllies; // Double means add same amount
+                        for (let i = 0; i < toAdd; i++) {
+                            const ally = new Ally(this.allies.length);
+                            ally.setSpawnPosition(ring.x, ring.y);
+                            this.allies.push(ally);
+                        }
+                        if (toAdd > 0) {
+                            this.particles.allyJoin(ring.x, ring.y);
+                            this.floatingText.add(ring.x, ring.y - 20, `x2 = +${toAdd}`, {
+                                color: '#ffdd00',
+                                size: 14,
+                                duration: 1500
+                            });
+                        } else {
+                            this.floatingText.add(ring.x, ring.y - 20, 'x2', {
+                                color: '#ffdd00',
+                                size: 14,
+                                duration: 1000
+                            });
+                        }
+                    } else {
+                        // /2 gate - halve allies
+                        this.audio.playAllyLost();
+                        this.particles.ringCollect(ring.x, ring.y, false);
+                        this.screenFx.shake(6, 0.3);
+                        this.screenFx.flash('#aa2222', 0.2, 0.04);
+                        this.haptics.allyLost();
+
+                        const toRemove = Math.floor(currentAllies / 2);
+                        let removed = 0;
+                        for (let i = this.allies.length - 1; i >= 0 && removed < toRemove; i--) {
+                            if (this.allies[i].active) {
+                                this.particles.allyLost(this.allies[i].x, this.allies[i].y);
+                                this.allies[i].active = false;
+                                removed++;
+                            }
+                        }
+                        this.formation.reassignFormations(this.allies);
+                        this.floatingText.add(ring.x, ring.y - 20, `/2 = -${removed}`, {
+                            color: '#ff4444',
+                            size: 14,
+                            duration: 1500
+                        });
+                    }
+                    return;
+                }
+
+                // Normal ring handling
+                const value = ring.collect();
+                this.ringsCollected++;
+                this.haptics.ringCollect();
+
+                if (value >= 0) {
+                    this.audio.playRingCollect();
+                    this.particles.ringCollect(ring.x, ring.y, true);
+                    this.screenFx.flash('#ffdd00', 0.1, 0.04);
+
+                    for (let i = 0; i < value; i++) {
+                        const ally = new Ally(this.allies.length);
+                        ally.setSpawnPosition(ring.x, ring.y);
+                        this.allies.push(ally);
+                        this.particles.allyJoin(ring.x, ring.y);
+                    }
+                    if (value > 0) {
+                        this.audio.playAllyJoin();
+                        this.haptics.allyJoin();
+                        this.floatingText.allyGained(ring.x, ring.y, value);
+                    }
+                } else {
+                    this.audio.playAllyLost();
+                    this.particles.ringCollect(ring.x, ring.y, false);
+                    this.screenFx.shake(4, 0.2);
+                    this.screenFx.flash('#ff4466', 0.15, 0.04);
+                    this.haptics.allyLost();
+
+                    const toRemove = Math.min(Math.abs(value), this.allies.filter(a => a.active).length);
+                    let removed = 0;
+                    for (let i = this.allies.length - 1; i >= 0 && removed < toRemove; i--) {
+                        if (this.allies[i].active) {
+                            this.particles.allyLost(this.allies[i].x, this.allies[i].y);
+                            this.allies[i].active = false;
+                            removed++;
+                        }
+                    }
+                    this.formation.reassignFormations(this.allies);
+                    this.floatingText.allyLost(ring.x, ring.y, removed);
+                }
+            }
+        );
+
+        // Player vs power-ups
+        for (const powerUp of this.powerUps) {
+            if (!powerUp.active) continue;
+            const playerBounds = this.player.getBounds();
+            const powerUpBounds = powerUp.getBounds();
+            if (CollisionSystem.checkAABB(playerBounds, powerUpBounds)) {
+                const collected = powerUp.collect();
+                this.applyPowerUp(collected.type, collected.duration);
+            }
+        }
+
+        // Enemy bullets vs player/allies
+        CollisionSystem.checkEnemyBulletCollisions(
+            this.enemyBullets,
+            this.player,
+            this.allies,
+            (bullet) => {
+                // Check for shield power-up
+                if (this.powerUpManager.consumeShieldHit()) {
+                    this.audio.playPowerUp();
+                    this.particles.spark(this.player.x, this.player.y, '#00ffff');
+                    this.haptics.light();
+                    return;
+                }
+
+                // Check for invincibility (practice mode)
+                if (this.gameMode.isInvincible()) {
+                    return;
+                }
+
+                const died = this.player.takeDamage(bullet.damage);
+                this.audio.playDamage();
+                this.haptics.playerHit();
+                this.particles.damageHit(this.player.x, this.player.y);
+                this.screenFx.shake(4, 0.1);
+                this.screenFx.flash('#ff0000', 0.2, 0.06);
+                this.floatingText.damage(this.player.x, this.player.y - 20, bullet.damage);
+
+                if (died) {
+                    this.particles.explosion(this.player.x, this.player.y, 1.5);
+                }
+            },
+            (bullet, ally) => {
+                // Check for ally shield power-up
+                if (this.powerUpManager.hasAllyShield()) {
+                    this.particles.spark(ally.x, ally.y, '#00ff88');
+                    return;
+                }
+
+                const died = ally.takeDamage(bullet.damage);
+                this.audio.playDamage();
+                this.particles.spark(ally.x, ally.y, '#ff6666');
+
+                if (died) {
+                    this.particles.explosion(ally.x, ally.y, 0.5);
+                    this.formation.reassignFormations(this.allies);
+                }
+            }
+        );
+
+        // Enemy collision with player/allies
+        CollisionSystem.checkEnemyEntityCollisions(
+            this.enemies,
+            this.player,
+            this.allies,
+            (enemy) => {
+                // Skip collision during entry animation
+                if (enemy.entering) return;
+                if (enemy.onScreen) {
+                    // Check for invincibility (practice mode)
+                    if (!this.gameMode.isInvincible()) {
+                        // Use enemy's ramDamage if available (e.g., BUS), otherwise default 30
+                        const damage = enemy.ramDamage || 30;
+                        this.player.takeDamage(damage);
+                        this.audio.playDamage();
+                        this.screenFx.shake(8, 0.2);
+                        this.screenFx.flash('#ff4400', 0.25, 0.04);
+                    }
+                    enemy.takeDamage(enemy.health);
+                    this.audio.playExplosion();
+                    this.particles.explosion(enemy.x, enemy.y, 1);
+                }
+            },
+            (enemy, ally) => {
+                // Skip collision during entry animation
+                if (enemy.entering) return;
+                if (enemy.onScreen) {
+                    ally.takeDamage(ally.health);
+                    // BUS barely takes damage from ramming allies - it's a tank
+                    const selfDamage = enemy.type === 'BUS' ? 1 : 20;
+                    enemy.takeDamage(selfDamage);
+                    this.audio.playExplosion();
+                    this.particles.explosion(ally.x, ally.y, 0.6);
+                    this.formation.reassignFormations(this.allies);
+                }
+            }
+        );
+    }
+
+    // Calculate ally damage multiplier based on total ally count
+    // At 200 allies: 1x damage, at 400 allies: 2x damage
+    getAllyDamageMultiplier() {
+        const activeAllies = this.allies.filter(a => a.active).length;
+        if (activeAllies <= CONFIG.ALLY_DAMAGE_SCALE_START) {
+            return 1;
+        }
+        const excessAllies = activeAllies - CONFIG.ALLY_DAMAGE_SCALE_START;
+        return 1 + excessAllies * CONFIG.ALLY_DAMAGE_SCALE_FACTOR;
+    }
+
+    // Play enemy type-specific shooting sounds
+    playEnemyTypeSound(enemy) {
+        if (enemy.isElite) {
+            this.audio.playEliteShoot();
+            return;
+        }
+
+        switch (enemy.type) {
+            case 'TANK':
+                this.audio.playTankShoot();
+                break;
+            case 'SNIPER':
+                this.audio.playSniperShoot();
+                break;
+            case 'BOMBER':
+                this.audio.playBomberShoot();
+                break;
+            case 'SHIELD':
+                this.audio.playShieldShoot();
+                break;
+            default:
+                this.audio.playEnemyShoot();
+        }
+    }
+
+    cleanup() {
+        this.playerBullets = this.playerBullets.filter(b => b.active);
+        this.enemyBullets = this.enemyBullets.filter(b => b.active);
+        this.enemies = this.enemies.filter(e => e.active);
+        this.allies = this.allies.filter(a => a.active);
+        this.rings = this.rings.filter(r => r.active);
+        this.powerUps = this.powerUps.filter(p => p.active);
+
+        // Clean up boss
+        if (this.boss && !this.boss.active) {
+            this.boss = null;
+            this.bossActive = false;
+        }
+
+        this.explosions = this.explosions.filter(exp => {
+            exp.timer++;
+            if (exp.timer > 5) {
+                exp.timer = 0;
+                exp.frame++;
+            }
+            return exp.frame < 4;
+        });
+    }
+
+    // Boss methods
+    spawnBoss() {
+        const bossType = getBossForWave(this.currentWave);
+        this.boss = new Boss(bossType, this.currentWave);
+        this.bossActive = true;
+        this.waveAnnouncement = `BOSS: ${this.boss.typeData.name}`;
+        this.waveAnnouncementTimer = 3000;
+        this.music.startBossMusic();
+        this.haptics.bossAppear();
+        this.screenFx.shake(10, 0.5);
+        this.screenFx.flash('#ff0000', 0.3, 0.02);
+    }
+
+    updateBossAttacks(currentTime) {
+        if (!this.boss || !this.boss.active || this.boss.entering) return;
+
+        if (this.boss.shouldAttack()) {
+            const attackType = this.boss.getAttack();
+            const positions = this.boss.getGunPositions();
+
+            switch (attackType) {
+                case 'spread':
+                    BossAttacks.spread(this.boss, this.enemyBullets, (x, y, isPlayer, damage) => {
+                        // Create boss bullet with proper properties for collision detection
+                        const bullet = {
+                            x, y,
+                            vx: 0,
+                            vy: CONFIG.BOSS_BULLET_SPEED,
+                            damage: damage || CONFIG.BOSS_BULLET_DAMAGE,
+                            active: true,
+                            isPlayer: false,
+                            isPlayerBullet: false, // Required for collision system
+                            update(dt) {
+                                this.x += this.vx * dt;
+                                this.y += this.vy * dt;
+                                if (this.y > CONFIG.GAME_HEIGHT + 20) this.active = false;
+                            },
+                            draw(renderer) {
+                                renderer.ctx.fillStyle = '#ff6666';
+                                renderer.ctx.fillRect(this.x - 2, this.y - 4, 4, 8);
+                            },
+                            getBounds() {
+                                return { x: this.x - 2, y: this.y - 4, width: 4, height: 8 };
+                            }
+                        };
+                        return bullet;
+                    });
+                    break;
+                case 'missiles':
+                    // Queue missiles with game-time delays instead of setTimeout
+                    positions.forEach((pos, i) => {
+                        this.pendingBossBullets.push({
+                            delay: i * CONFIG.BOSS_MISSILE_DELAY, // ms until spawn
+                            spawnX: pos.x,
+                            spawnY: pos.y,
+                            targetX: this.player.x,
+                            targetY: this.player.y
+                        });
+                    });
+                    break;
+                case 'spawn':
+                    for (let i = 0; i < 3; i++) {
+                        const x = this.boss.x - 60 + i * 60;
+                        this.spawnEnemy(x, this.boss.y + 50, 'DRONE');
+                    }
+                    break;
+            }
+            this.audio.playEnemyShoot();
+        }
+    }
+
+    /**
+     * Process pending boss bullets using game-time scheduling
+     * Replaces setTimeout for frame-perfect timing
+     */
+    processPendingBossBullets(deltaTime) {
+        if (this.pendingBossBullets.length === 0) return;
+
+        // Process each pending bullet
+        for (let i = this.pendingBossBullets.length - 1; i >= 0; i--) {
+            const pending = this.pendingBossBullets[i];
+            pending.delay -= deltaTime;
+
+            // Spawn when delay reaches zero
+            if (pending.delay <= 0) {
+                // Only spawn if boss is still active
+                if (this.boss && this.boss.active) {
+                    this.enemyBullets.push({
+                        x: pending.spawnX,
+                        y: pending.spawnY,
+                        vx: 0,
+                        vy: 2,
+                        targetX: pending.targetX,
+                        targetY: pending.targetY,
+                        homing: true,
+                        damage: 20,
+                        active: true,
+                        isPlayer: false,
+                        isPlayerBullet: false,
+                        update(dt) {
+                            if (this.homing) {
+                                const dx = this.targetX - this.x;
+                                const dy = this.targetY - this.y;
+                                const dist = Math.sqrt(dx * dx + dy * dy);
+                                if (dist > 0) {
+                                    this.vx += (dx / dist) * 0.15 * dt;
+                                    this.vy += (dy / dist) * 0.15 * dt;
+                                }
+                            }
+                            this.x += this.vx * dt;
+                            this.y += this.vy * dt;
+                            if (this.y > CONFIG.GAME_HEIGHT + 20) this.active = false;
+                        },
+                        draw(renderer) {
+                            renderer.ctx.fillStyle = '#ff8800';
+                            renderer.ctx.fillRect(this.x - 3, this.y - 5, 6, 10);
+                        },
+                        getBounds() {
+                            return { x: this.x - 3, y: this.y - 5, width: 6, height: 10 };
+                        }
+                    });
+                }
+                // Remove from queue
+                this.pendingBossBullets.splice(i, 1);
+            }
+        }
+    }
+
+    onBossDefeated() {
+        this.bossDefeated = true;
+        const bossGold = this.boss.typeData.goldReward;
+        this.score += bossGold * 10;
+        this.gold += bossGold;
+        this.totalGold += bossGold;
+
+        // Floating text for boss gold
+        this.floatingText.gold(this.boss.x, this.boss.y - 40, bossGold);
+        this.floatingText.add(this.boss.x, this.boss.y - 60, 'BOSS DEFEATED!', {
+            color: '#ff8800',
+            size: 18,
+            duration: 2000,
+            outline: true
+        });
+
+        // Big explosion
+        for (let i = 0; i < 5; i++) {
+            setTimeout(() => {
+                if (this.boss) {
+                    const ox = (Math.random() - 0.5) * this.boss.width;
+                    const oy = (Math.random() - 0.5) * this.boss.height;
+                    this.particles.explosion(this.boss.x + ox, this.boss.y + oy, 1.5);
+                    this.audio.playExplosion();
+                }
+            }, i * 150);
+        }
+
+        this.haptics.bossDefeated();
+        this.screenFx.shake(15, 0.5);
+        this.screenFx.flash('#ffffff', 0.5, 0.03);
+        this.music.startNormalMusic();
+
+        // Drop multiple power-ups
+        for (let i = 0; i < 3; i++) {
+            this.spawnPowerUp(
+                this.boss.x + (Math.random() - 0.5) * 100,
+                this.boss.y + (Math.random() - 0.5) * 50
+            );
+        }
+    }
+
+    // Power-up methods
+    spawnPowerUp(x, y, type = null) {
+        const powerUp = new PowerUp(x, y, type);
+        this.powerUps.push(powerUp);
+    }
+
+    applyPowerUp(type, duration) {
+        this.audio.playPowerUp();
+        this.haptics.doubleTap();
+        this.screenFx.flash(POWERUP_TYPES[type].color, 0.2, 0.05);
+        this.particles.ringCollect(this.player.x, this.player.y, true);
+
+        switch (type) {
+            case 'NUKE':
+                // Destroy all enemies
+                this.haptics.nuke();
+                this.screenFx.flash('#ffffff', 0.8, 0.03);
+                this.screenFx.shake(10, 0.3);
+                for (const enemy of this.enemies) {
+                    if (enemy.active) {
+                        this.particles.explosion(enemy.x, enemy.y, 0.8);
+                        this.score += enemy.score;
+                        this.gold += enemy.gold;
+                        this.totalGold += enemy.gold;
+                        this.kills++;
+                        enemy.active = false;
+                    }
+                }
+                this.audio.playExplosion();
+                break;
+
+            case 'HEAL':
+                const healAmount = 30;
+                this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
+                this.floatingText.heal(this.player.x, this.player.y - 20, healAmount);
+                break;
+
+            default:
+                this.powerUpManager.activate(type, duration);
+        }
+    }
+
+    render() {
+        const ctx = this.canvas.getContext('2d');
+
+        // Save context state
+        ctx.save();
+
+        // Apply screen shake
+        this.screenFx.applyShake(ctx);
+
+        // Clear screen (includes stars)
+        this.renderer.clear();
+
+        // Draw particles (behind entities)
+        this.particles.draw(ctx);
+
+        // Draw floating text
+        this.floatingText.draw(ctx);
+
+        // Draw rings
+        for (const ring of this.rings) {
+            ring.draw(this.renderer);
+        }
+
+        // Draw power-ups
+        for (const powerUp of this.powerUps) {
+            powerUp.draw(this.renderer);
+        }
+
+        // Draw bullets
+        for (const bullet of this.playerBullets) {
+            bullet.draw(this.renderer);
+        }
+        for (const bullet of this.enemyBullets) {
+            if (bullet.draw) bullet.draw(this.renderer);
+        }
+
+        // Draw enemies
+        for (const enemy of this.enemies) {
+            enemy.draw(this.renderer);
+        }
+
+        // Draw boss
+        if (this.boss && this.boss.active) {
+            this.boss.draw(this.renderer);
+        }
+
+        // Draw allies (capped at ALLY_DISPLAY_CAP for performance)
+        let drawnAllies = 0;
+        for (const ally of this.allies) {
+            if (!ally.active) continue;
+            if (drawnAllies >= CONFIG.ALLY_DISPLAY_CAP) break;
+            ally.draw(this.renderer);
+            drawnAllies++;
+        }
+
+        // Draw player
+        this.player.draw(this.renderer);
+
+        // Draw shield effect around player if active
+        if (this.powerUpManager.hasShield()) {
+            ctx.strokeStyle = `rgba(0, 255, 255, ${0.5 + Math.sin(Date.now() / 100) * 0.3})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, 25, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Draw ASCII explosions (legacy, on top of particles)
+        for (const exp of this.explosions) {
+            if (SPRITES.EXPLOSION[exp.frame]) {
+                this.renderer.drawSpriteCentered(
+                    SPRITES.EXPLOSION[exp.frame],
+                    exp.x,
+                    exp.y,
+                    '#ff8800'
+                );
+            }
+        }
+
+        // Draw screen flash
+        this.screenFx.drawFlash(ctx, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+
+        // Restore context
+        ctx.restore();
+
+        // Draw HUD (not affected by shake)
+        const activeAllies = this.allies.filter(a => a.active).length;
+        const allyDamageMult = this.getAllyDamageMultiplier();
+        this.renderer.drawHUD(
+            this.gold,
+            this.score,
+            this.player.health,
+            this.player.maxHealth,
+            activeAllies,
+            allyDamageMult
+        );
+
+        // Draw combo
+        this.combo.draw(ctx, CONFIG.GAME_WIDTH - 10, 80);
+
+        // Draw active power-up effects
+        this.drawActivePowerUps(ctx);
+
+        // Draw wave announcement
+        if (this.waveAnnouncement) {
+            const alpha = Math.min(1, this.waveAnnouncementTimer / 500);
+            ctx.globalAlpha = alpha;
+            this.renderer.drawTextCentered(
+                this.waveAnnouncement,
+                CONFIG.GAME_WIDTH / 2,
+                CONFIG.GAME_HEIGHT / 2 - 50,
+                '#ffffff',
+                24
+            );
+            ctx.globalAlpha = 1;
+        }
+
+        // Draw UI overlays
+        if (this.state === 'shop') {
+            this.shopUI.draw(ctx, this.gold, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+        }
+
+        // Draw game over overlay
+        if (this.state === 'gameover') {
+            this.renderer.drawGameOver(this.score, this.gold, this.isNewLevelHighScore, this.currentWave);
+        }
+    }
+
+    drawActivePowerUps(ctx) {
+        const active = this.powerUpManager.getActiveEffects();
+        if (active.length === 0) return;
+
+        let y = CONFIG.GAME_HEIGHT - 30;
+        ctx.font = `10px ${CONFIG.FONT_FAMILY}`;
+        ctx.textAlign = 'left';
+
+        active.forEach(effect => {
+            const seconds = Math.ceil(effect.remaining / 1000);
+            ctx.fillStyle = effect.data.color;
+            ctx.fillText(`${effect.data.char} ${effect.data.name}: ${seconds}s`, 10, y);
+            y -= 15;
+        });
+    }
+}
+
+// Initialize game when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    window.game = new Game();
+
+    // Start the single unified game loop
+    window.game.lastTime = performance.now();
+    requestAnimationFrame(window.game.gameLoop);
+});

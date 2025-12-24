@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ring Squadron Icon Generator</title>
+    <style>
+        body { font-family: monospace; background: #1a1a2e; color: #fff; padding: 20px; }
+        canvas { margin: 5px; border: 1px solid #333; }
+        .sizes { display: flex; flex-wrap: wrap; gap: 10px; }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Ring Squadron Icon Generator</h1>
+    <p>Click "Generate All" then right-click each canvas to save as PNG with the filename shown.</p>
+    <button onclick="generateAll()">Generate All Icons</button>
+    <div class="sizes" id="canvases"></div>
+
+    <script>
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+
+        function drawIcon(ctx, size) {
+            const s = size;
+            const cx = s / 2;
+            const cy = s / 2;
+
+            // Background
+            ctx.fillStyle = '#0a0a12';
+            ctx.fillRect(0, 0, s, s);
+
+            // Outer glow
+            const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, s * 0.4);
+            gradient.addColorStop(0, 'rgba(0, 255, 136, 0.3)');
+            gradient.addColorStop(1, 'rgba(0, 255, 136, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, s, s);
+
+            // Ship body
+            const shipScale = s * 0.6;
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            // Main body
+            ctx.fillStyle = '#00ff88';
+            ctx.beginPath();
+            ctx.moveTo(0, -shipScale * 0.4);
+            ctx.lineTo(-shipScale * 0.25, shipScale * 0.3);
+            ctx.lineTo(0, shipScale * 0.15);
+            ctx.lineTo(shipScale * 0.25, shipScale * 0.3);
+            ctx.closePath();
+            ctx.fill();
+
+            // Cockpit
+            ctx.fillStyle = '#00aaff';
+            ctx.beginPath();
+            ctx.moveTo(0, -shipScale * 0.25);
+            ctx.lineTo(-shipScale * 0.08, shipScale * 0.05);
+            ctx.lineTo(shipScale * 0.08, shipScale * 0.05);
+            ctx.closePath();
+            ctx.fill();
+
+            // Engine glow
+            ctx.fillStyle = '#ff8800';
+            ctx.beginPath();
+            ctx.ellipse(0, shipScale * 0.25, shipScale * 0.08, shipScale * 0.15, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+
+            // Ring around ship
+            ctx.strokeStyle = '#44aaff';
+            ctx.lineWidth = s * 0.03;
+            ctx.beginPath();
+            ctx.arc(cx, cy, s * 0.38, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        function generateAll() {
+            const container = document.getElementById('canvases');
+            container.innerHTML = '';
+
+            sizes.forEach(size => {
+                const div = document.createElement('div');
+                div.style.textAlign = 'center';
+
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                drawIcon(ctx, size);
+
+                const label = document.createElement('div');
+                label.textContent = `icon-${size}.png`;
+
+                div.appendChild(canvas);
+                div.appendChild(label);
+                container.appendChild(div);
+            });
+        }
+
+        // Auto-generate on load
+        generateAll();
+    </script>
+</body>
+</html>
