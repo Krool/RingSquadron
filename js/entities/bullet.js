@@ -12,7 +12,7 @@ export class Bullet {
         this.y = y;
         this.isPlayerBullet = isPlayerBullet;
         this.damage = damage;
-        this.speed = isPlayerBullet ? CONFIG.PLAYER_BULLET_SPEED : 6;
+        this.speed = isPlayerBullet ? CONFIG.PLAYER_BULLET_SPEED : 4; // Slower enemy bullets
         this.active = true;
         this.sprite = isPlayerBullet ? SPRITES.BULLET_UP : SPRITES.BULLET_DOWN;
 

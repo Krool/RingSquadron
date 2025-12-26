@@ -3,7 +3,7 @@
  * Enables offline play and caching for PWA support
  */
 
-const CACHE_NAME = 'ring-squadron-v5';
+const CACHE_NAME = 'ring-squadron-v6';
 const urlsToCache = [
     './',
     './index.html',

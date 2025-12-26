@@ -17,13 +17,13 @@ export const CONFIG = {
     // Player settings
     PLAYER_HEALTH: 100,
     PLAYER_SPEED: 8,
-    PLAYER_FIRE_RATE: 150, // ms between shots
+    PLAYER_FIRE_RATE: 220, // ms between shots (slower for smoother feel)
     PLAYER_BULLET_DAMAGE: 10,
-    PLAYER_BULLET_SPEED: 12,
+    PLAYER_BULLET_SPEED: 8, // Slower bullets
 
     // Ally settings
     ALLY_HEALTH: 30,
-    ALLY_FIRE_RATE: 250,
+    ALLY_FIRE_RATE: 400, // Slower ally firing
     ALLY_BULLET_DAMAGE: 5,
     ALLY_FORMATION_SPACING: 15, // Tighter for cloud formation
     ALLY_SCALE: 0.125, // 1/8th size
@@ -31,11 +31,11 @@ export const CONFIG = {
     ALLY_DAMAGE_SCALE_START: 200, // Start scaling damage after this many
     ALLY_DAMAGE_SCALE_FACTOR: 0.005, // Damage multiplier per ally over cap
 
-    // Enemy settings - Reduced attack speed (higher = slower)
+    // Enemy settings - Slower speeds for smoother gameplay
     ENEMY_TYPES: {
         BASIC: {
             health: 20,
-            speed: 2.5,      // Slightly faster since no firing
+            speed: 1.5,      // Slower, smoother movement
             fireRate: 0,     // No firing - collision threat only
             bulletDamage: 0,
             gold: 10,
@@ -44,8 +44,8 @@ export const CONFIG = {
         },
         BUS: {
             health: 100,
-            speed: 0.4,      // Slow approach
-            chargeSpeed: 10, // Fast charge
+            speed: 0.3,      // Slow approach
+            chargeSpeed: 6,  // Slower charge
             fireRate: 0,     // No shooting
             bulletDamage: 0,
             gold: 75,
@@ -55,24 +55,24 @@ export const CONFIG = {
         },
         FAST: {
             health: 15,
-            speed: 4,
-            fireRate: 2800, // Slower
+            speed: 2.5,      // Reduced from 4
+            fireRate: 3200,  // Slower firing
             bulletDamage: 8,
             gold: 15,
             score: 150
         },
         TANK: {
             health: 50,
-            speed: 1,
-            fireRate: 1800, // Slower
+            speed: 0.6,      // Slower
+            fireRate: 2200,  // Slower firing
             bulletDamage: 18,
             gold: 30,
             score: 300
         },
         BOMBER: {
             health: 25,
-            speed: 1.5,
-            fireRate: 4000, // Slower
+            speed: 1.0,      // Slower
+            fireRate: 4500,  // Slower firing
             bulletDamage: 25,
             gold: 25,
             score: 200,
@@ -80,8 +80,8 @@ export const CONFIG = {
         },
         SNIPER: {
             health: 12,
-            speed: 0.5,
-            fireRate: 3500, // Slower
+            speed: 0.4,      // Slower
+            fireRate: 4000,  // Slower firing
             bulletDamage: 30,
             gold: 20,
             score: 250,
@@ -89,7 +89,7 @@ export const CONFIG = {
         },
         SWARM: {
             health: 8,
-            speed: 3,
+            speed: 2.0,      // Slower
             fireRate: 0,
             bulletDamage: 10,
             gold: 5,
@@ -98,8 +98,8 @@ export const CONFIG = {
         },
         SHIELD: {
             health: 40,
-            speed: 1.5,
-            fireRate: 2800, // Slower
+            speed: 1.0,      // Slower
+            fireRate: 3200,  // Slower firing
             bulletDamage: 12,
             gold: 35,
             score: 350,
@@ -107,7 +107,7 @@ export const CONFIG = {
         },
         CARRIER: {
             health: 60,
-            speed: 0.8,
+            speed: 0.5,      // Slower
             fireRate: 0,
             bulletDamage: 0,
             gold: 50,
@@ -116,8 +116,8 @@ export const CONFIG = {
         },
         DRONE: {
             health: 10,
-            speed: 2.5,
-            fireRate: 2500, // Slower
+            speed: 1.8,      // Slower
+            fireRate: 3000,  // Slower firing
             bulletDamage: 6,
             gold: 5,
             score: 75
@@ -139,7 +139,7 @@ export const CONFIG = {
 
     // Ring settings
     RING_BASE_VALUE: 1,
-    RING_SPEED: 1.5,
+    RING_SPEED: 1.0, // Slower rings for smoother feel
 
     // Spawning
     ENEMY_SPAWN_INTERVAL: 2000,
@@ -203,7 +203,7 @@ export const CONFIG = {
     // BOSS SETTINGS
     // ========================================
     BOSS_BULLET_DAMAGE: 15,          // Default boss bullet damage
-    BOSS_BULLET_SPEED: 4,            // Default boss bullet speed
+    BOSS_BULLET_SPEED: 2.5,          // Slower boss bullets for smoother feel
 
     // ========================================
     // CARRIER ENEMY
