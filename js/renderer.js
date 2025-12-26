@@ -51,9 +51,11 @@ export class Renderer {
                 star.y += star.speed * dt;
                 star.twinkle += 0.02 * dt;
 
-                // Wrap around
-                if (star.y > CONFIG.GAME_HEIGHT) {
-                    star.y = -2;
+                // Wrap around - use modulo to prevent bunching
+                if (star.y > CONFIG.GAME_HEIGHT + 5) {
+                    // Reset to top with offset based on how far past bottom
+                    const overflow = star.y - CONFIG.GAME_HEIGHT;
+                    star.y = -5 + (overflow % 10);
                     star.x = Math.random() * CONFIG.GAME_WIDTH;
                 }
             }

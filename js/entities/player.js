@@ -40,15 +40,9 @@ export class Player {
         }
 
         // Only move horizontally - Y is locked at bottom
+        // Ship follows drag position exactly
         if (targetPos) {
-            const dx = targetPos.x - this.x;
-            const distance = Math.abs(dx);
-
-            if (distance > 5) {
-                // Move toward target X position
-                const moveX = Math.sign(dx) * Math.min(this.speed * dt, distance);
-                this.x += moveX;
-            }
+            this.x = targetPos.x;
         }
 
         // Clamp X position to bounds, Y stays fixed

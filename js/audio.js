@@ -5,6 +5,12 @@ export class AudioManager {
         this.initialized = false;
         this.muted = false;
         this.masterVolume = 0.15; // Master volume for normalization
+
+        // Sound throttling to prevent audio overload
+        this.lastShootTime = 0;
+        this.shootThrottleMs = 50; // Min ms between shoot sounds
+        this.activeShootSounds = 0;
+        this.maxConcurrentShoots = 3; // Max simultaneous shoot sounds
     }
 
     init() {
@@ -38,9 +44,17 @@ export class AudioManager {
         return filter;
     }
 
-    // Player shooting - soft, subtle blip
+    // Player shooting - soft, subtle blip (throttled to prevent audio overload)
     playShoot() {
         if (!this.initialized || this.muted) return;
+
+        // Throttle shoot sounds to prevent audio chaos with many allies
+        const now = performance.now();
+        if (now - this.lastShootTime < this.shootThrottleMs) return;
+        if (this.activeShootSounds >= this.maxConcurrentShoots) return;
+
+        this.lastShootTime = now;
+        this.activeShootSounds++;
 
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -60,6 +74,9 @@ export class AudioManager {
 
         osc.start(this.ctx.currentTime);
         osc.stop(this.ctx.currentTime + 0.04);
+
+        // Decrease active count after sound finishes
+        setTimeout(() => { this.activeShootSounds--; }, 50);
     }
 
     // Enemy shooting - soft low tone
