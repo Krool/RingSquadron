@@ -627,6 +627,14 @@ class Game {
     }
 
     exitEditor() {
+        // Check for unsaved changes
+        if (this.editor.hasUnsavedChanges()) {
+            const save = confirm(`"${this.editor.levelName}" has unsaved changes.\n\nSave before exiting?`);
+            if (save) {
+                this.editor.saveLevel();
+                this.audio.playPowerUp();
+            }
+        }
         this.editorUI.hide();
         this.state = 'menu';
     }

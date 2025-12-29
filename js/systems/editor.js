@@ -19,6 +19,7 @@ export class EditorSystem {
         this.levelName = 'Untitled';
         this.waves = [this.createEmptyWave()];
         this.currentWaveIndex = 0;
+        this.isDirty = false;  // Track unsaved changes
 
         // Tool selection
         this.selectedTool = 'ring';  // 'ring', 'enemy', 'wall', 'gate_x2', 'gate_div', 'erase'
@@ -41,6 +42,11 @@ export class EditorSystem {
         this.wallTypes = Object.keys(WALL_TYPES);
     }
 
+    // Check if there are unsaved changes
+    hasUnsavedChanges() {
+        return this.isDirty;
+    }
+
     createEmptyWave() {
         return {
             delay: 2000,  // Delay before this wave starts (ms)
@@ -58,12 +64,14 @@ export class EditorSystem {
     addWave() {
         this.waves.push(this.createEmptyWave());
         this.currentWaveIndex = this.waves.length - 1;
+        this.isDirty = true;
     }
 
     removeWave() {
         if (this.waves.length > 1) {
             this.waves.splice(this.currentWaveIndex, 1);
             this.currentWaveIndex = Math.min(this.currentWaveIndex, this.waves.length - 1);
+            this.isDirty = true;
         }
     }
 
@@ -174,6 +182,7 @@ export class EditorSystem {
                 this.eraseAt(x, y, editAreaWidth, editAreaHeight);
                 break;
         }
+        this.isDirty = true;
     }
 
     // Erase element at position
@@ -211,6 +220,7 @@ export class EditorSystem {
     // Clear current wave
     clearCurrentWave() {
         this.waves[this.currentWaveIndex] = this.createEmptyWave();
+        this.isDirty = true;
     }
 
     // Set ring value for placement
@@ -248,6 +258,7 @@ export class EditorSystem {
     // Set level name
     setLevelName(name) {
         this.levelName = name.trim() || 'Untitled';
+        this.isDirty = true;
     }
 
     // Serialize level for storage
@@ -278,6 +289,7 @@ export class EditorSystem {
             gates: wave.gates || []
         }));
         this.currentWaveIndex = 0;
+        this.isDirty = false;
         return true;
     }
 
@@ -286,6 +298,7 @@ export class EditorSystem {
         const levels = EditorSystem.getSavedLevels();
         levels[this.levelName] = this.serialize();
         localStorage.setItem('ringSquadron_customLevels', JSON.stringify(levels));
+        this.isDirty = false;
         return true;
     }
 
@@ -335,5 +348,6 @@ export class EditorSystem {
         this.selectedRingValue = 3;
         this.selectedWallType = 'SOLID';
         this.scrollOffset = 0;
+        this.isDirty = false;
     }
 }
