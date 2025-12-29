@@ -38,9 +38,11 @@
         <canvas id="gameCanvas"></canvas>
     </div>
 
-    <!-- UI Buttons -->
-    <button id="mute-btn" onclick="toggleMute()">SOUND: ON</button>
-    <button id="fullscreen-btn" onclick="toggleFullscreen()">FULLSCREEN</button>
+    <!-- UI Buttons - small icons in bottom right -->
+    <div class="ui-controls">
+        <button id="fullscreen-btn" onclick="toggleFullscreen()" aria-label="Toggle fullscreen"></button>
+        <button id="mute-btn" onclick="toggleMute()" aria-label="Toggle sound"></button>
+    </div>
 
     <!-- Game Scripts -->
     <script type="module" src="js/main.js"></script>
@@ -50,7 +52,8 @@
         function toggleMute() {
             if (window.game && window.game.audio) {
                 const muted = window.game.audio.toggleMute();
-                document.getElementById('mute-btn').textContent = muted ? 'SOUND: OFF' : 'SOUND: ON';
+                const btn = document.getElementById('mute-btn');
+                btn.classList.toggle('muted', muted);
             }
         }
 
@@ -65,10 +68,10 @@
             }
         }
 
-        // Update fullscreen button text
+        // Update fullscreen button state
         document.addEventListener('fullscreenchange', () => {
             const btn = document.getElementById('fullscreen-btn');
-            btn.textContent = document.fullscreenElement ? 'EXIT FS' : 'FULLSCREEN';
+            btn.classList.toggle('active', !!document.fullscreenElement);
         });
 
         // Prevent default touch behaviors

@@ -188,6 +188,111 @@ export class Renderer {
             }
             this.drawText(allyText, padding, padding + 35, CONFIG.COLORS.ALLY, 10);
         }
+
+        // Pause button (top center) - small and unobtrusive
+        this.drawPauseButton();
+    }
+
+    // Draw pause button for in-game menu access
+    drawPauseButton() {
+        const btnX = this.canvas.width / 2 - 20;
+        const btnY = 5;
+        const btnW = 40;
+        const btnH = 20;
+
+        // Semi-transparent background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        this.ctx.fillRect(btnX, btnY, btnW, btnH);
+
+        // Border
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(btnX, btnY, btnW, btnH);
+
+        // Pause icon (two vertical bars)
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        this.ctx.fillRect(btnX + 14, btnY + 4, 4, 12);
+        this.ctx.fillRect(btnX + 22, btnY + 4, 4, 12);
+    }
+
+    // Get pause button bounds for tap detection
+    getPauseButtonBounds() {
+        return {
+            x: this.canvas.width / 2 - 20,
+            y: 5,
+            width: 40,
+            height: 20
+        };
+    }
+
+    // Draw pause menu overlay
+    drawPauseMenu() {
+        // Darken background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
+
+        // Title
+        this.drawTextFullyCentered('PAUSED', centerX, centerY - 80, '#ffffff', 28);
+
+        // Menu buttons
+        const btnWidth = 180;
+        const btnHeight = 45;
+        const btnY1 = centerY - 30;
+        const btnY2 = centerY + 30;
+        const btnY3 = centerY + 90;
+
+        // Resume button
+        this.drawMenuButton(centerX - btnWidth / 2, btnY1, btnWidth, btnHeight, 'RESUME', '#00ff88');
+
+        // Quit to Menu button
+        this.drawMenuButton(centerX - btnWidth / 2, btnY2, btnWidth, btnHeight, 'QUIT TO MENU', '#ff6666');
+    }
+
+    // Draw a menu button
+    drawMenuButton(x, y, width, height, text, color) {
+        // Background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        this.ctx.fillRect(x, y, width, height);
+
+        // Border
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(x, y, width, height);
+
+        // Text
+        this.ctx.fillStyle = color;
+        this.ctx.font = `bold 14px ${CONFIG.FONT_FAMILY}`;
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(text, x + width / 2, y + height / 2);
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'top';
+    }
+
+    // Get pause menu button bounds
+    getPauseMenuBounds() {
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
+        const btnWidth = 180;
+        const btnHeight = 45;
+
+        return {
+            resume: {
+                x: centerX - btnWidth / 2,
+                y: centerY - 30,
+                width: btnWidth,
+                height: btnHeight
+            },
+            quit: {
+                x: centerX - btnWidth / 2,
+                y: centerY + 30,
+                width: btnWidth,
+                height: btnHeight
+            }
+        };
     }
 
     // Draw game over screen

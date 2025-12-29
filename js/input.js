@@ -1,6 +1,7 @@
 /**
  * Touch and Mouse Input Handler
  * Supports drag-to-move, tap detection, and swipe gestures
+ * Uses time-based tap detection for more reliable touch handling
  * @module input
  */
 export class InputHandler {
@@ -22,6 +23,14 @@ export class InputHandler {
         this.lastSwipe = null; // 'left', 'right', 'up', 'down' or null
         this.swipeThreshold = 50; // Min pixels to count as swipe
         this.swipeMaxTime = 300; // Max ms for a swipe gesture
+
+        // Improved tap vs scroll detection
+        this.tapStartTime = null;
+        this.tapStartX = null;
+        this.tapStartY = null;
+        this.tapMaxTime = 200; // Max ms for a tap (vs scroll)
+        this.tapMaxMove = 15;  // Max pixels movement for a tap (vs scroll)
+        this.wasTap = false;   // True if last touch was classified as a tap
 
         this.setupEventListeners();
     }
@@ -66,7 +75,12 @@ export class InputHandler {
             this.targetX = pos.x;
             this.targetY = pos.y;
             this.isDragging = true;
-            this.justTapped = true;
+
+            // Track tap start for time-based tap detection
+            this.tapStartTime = performance.now();
+            this.tapStartX = pos.x;
+            this.tapStartY = pos.y;
+            this.wasTap = false;
 
             // Start tracking potential swipe
             this.swipeStartX = pos.x;
@@ -87,11 +101,30 @@ export class InputHandler {
     handleTouchEnd(e) {
         e.preventDefault();
         this.isDragging = false;
-        // Clear target when finger lifts - drag only, no tap-to-move for gameplay
-        // Keep target for menu taps though (justTapped still works for that)
 
-        // Check for swipe gesture
-        this.detectSwipe(this.targetX, this.targetY);
+        // Determine if this was a tap or a scroll/drag
+        const now = performance.now();
+        const elapsed = now - (this.tapStartTime || 0);
+        const dx = Math.abs(this.targetX - (this.tapStartX || 0));
+        const dy = Math.abs(this.targetY - (this.tapStartY || 0));
+        const totalMove = Math.sqrt(dx * dx + dy * dy);
+
+        // It's a tap if: short duration AND minimal movement
+        this.wasTap = elapsed < this.tapMaxTime && totalMove < this.tapMaxMove;
+
+        if (this.wasTap) {
+            this.justTapped = true;
+        }
+
+        // Check for swipe gesture (only if not a tap)
+        if (!this.wasTap) {
+            this.detectSwipe(this.targetX, this.targetY);
+        }
+
+        // Clear tap tracking
+        this.tapStartTime = null;
+        this.tapStartX = null;
+        this.tapStartY = null;
     }
 
     handleMouseDown(e) {
@@ -176,6 +209,26 @@ export class InputHandler {
         return false;
     }
 
+    // Check if the last touch was classified as a tap (vs scroll/drag)
+    // Useful for editor to distinguish placement taps from scroll gestures
+    wasLastTouchATap() {
+        return this.wasTap;
+    }
+
+    // Get the total movement since touch started (for scroll detection)
+    getTouchMovement() {
+        if (this.tapStartX === null || this.tapStartY === null) return 0;
+        const dx = Math.abs(this.targetX - this.tapStartX);
+        const dy = Math.abs(this.targetY - this.tapStartY);
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    // Check if currently in a scroll gesture (touch active + significant movement)
+    isScrolling() {
+        if (!this.isDragging) return false;
+        return this.getTouchMovement() > this.tapMaxMove;
+    }
+
     // Reset input state
     reset() {
         this.targetX = null;
@@ -186,6 +239,10 @@ export class InputHandler {
         this.swipeStartX = null;
         this.swipeStartY = null;
         this.swipeStartTime = null;
+        this.tapStartTime = null;
+        this.tapStartX = null;
+        this.tapStartY = null;
+        this.wasTap = false;
     }
 
     /**

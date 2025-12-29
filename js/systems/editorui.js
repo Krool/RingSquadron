@@ -41,13 +41,14 @@ export class EditorUI {
         this.animTime = 0;
         this.saveFlash = 0;
 
-        // Drag state for panning
+        // Drag state for panning - using larger threshold for mobile
         this.isDragging = false;
         this.lastDragY = 0;
         this.dragStartY = 0;
         this.dragStartX = 0;
         this.wasDragged = false;  // True if significant drag occurred
         this.pendingTap = null;   // Store tap position, only place on release if not dragged
+        this.dragThreshold = 20;  // Pixels of movement before considered a drag (increased for mobile)
 
         // Load level mode
         this.showingLoadList = false;
@@ -107,10 +108,12 @@ export class EditorUI {
     handleDragMove(x, y) {
         if (!this.visible) return;
 
-        // Check if this is a significant drag (moved more than 8 pixels)
+        // Check if this is a significant drag (using larger threshold for mobile)
         const dx = x - this.dragStartX;
         const dy = y - this.dragStartY;
-        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+        const totalMove = Math.sqrt(dx * dx + dy * dy);
+
+        if (totalMove > this.dragThreshold) {
             this.wasDragged = true;
             this.pendingTap = null;  // Cancel pending tap - this is a drag
         }

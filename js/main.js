@@ -81,7 +81,8 @@ class Game {
         this.gameOverUI = new GameOverUI();
 
         // Game state
-        this.state = 'menu'; // menu, modeSelect, playing, paused, shop, gameover
+        this.state = 'menu'; // menu, modeSelect, playing, paused, shop, gameover, editor, levelSelect, customPlaying
+        this.isPaused = false; // Pause overlay active during gameplay
         this.score = 0;
         this.gold = 0;
         this.totalGold = 0;
@@ -261,6 +262,66 @@ class Game {
         this.music.setIntensity(0.5);
     }
 
+    // Pause game
+    pauseGame() {
+        this.isPaused = true;
+        this.music.setIntensity(0.1);
+    }
+
+    // Resume game
+    resumeGame() {
+        this.isPaused = false;
+        this.music.setIntensity(0.5);
+        this.input.reset(); // Clear input state to prevent ghost inputs
+    }
+
+    // Quit to menu from pause
+    quitToMenu() {
+        this.isPaused = false;
+        this.state = 'menu';
+        this.music.stop();
+        this.input.reset();
+    }
+
+    // Update while paused - handle pause menu interactions
+    updatePaused() {
+        if (this.input.checkTap()) {
+            const target = this.input.getTarget();
+            if (target) {
+                const bounds = this.renderer.getPauseMenuBounds();
+
+                // Check resume button
+                if (this.isPointInBounds(target, bounds.resume)) {
+                    this.haptics.light();
+                    this.resumeGame();
+                    return;
+                }
+
+                // Check quit button
+                if (this.isPointInBounds(target, bounds.quit)) {
+                    this.haptics.medium();
+                    this.quitToMenu();
+                    return;
+                }
+            }
+        }
+    }
+
+    // Check if pause button was tapped
+    checkPauseButtonTap(target) {
+        if (!target) return false;
+        const bounds = this.renderer.getPauseButtonBounds();
+        return this.isPointInBounds(target, bounds);
+    }
+
+    // Helper to check if point is in bounds
+    isPointInBounds(point, bounds) {
+        return point.x >= bounds.x &&
+               point.x <= bounds.x + bounds.width &&
+               point.y >= bounds.y &&
+               point.y <= bounds.y + bounds.height;
+    }
+
     purchaseUpgrade() {
         const selected = this.shopUI.getSelectedUpgrade();
         if (selected && this.shop.canAfford(selected.key, this.gold)) {
@@ -297,8 +358,14 @@ class Game {
                 this.renderMenu();
                 break;
             case 'playing':
-                this.update(scaledDelta, currentTime);
-                this.render();
+                if (this.isPaused) {
+                    this.updatePaused();
+                    this.render();
+                    this.renderer.drawPauseMenu();
+                } else {
+                    this.update(scaledDelta, currentTime);
+                    this.render();
+                }
                 break;
             case 'shop':
                 this.updateShop(scaledDelta);
@@ -317,8 +384,14 @@ class Game {
                 this.renderLevelSelect();
                 break;
             case 'customPlaying':
-                this.updateCustomPlaying(scaledDelta, currentTime);
-                this.render();
+                if (this.isPaused) {
+                    this.updatePaused();
+                    this.render();
+                    this.renderer.drawPauseMenu();
+                } else {
+                    this.updateCustomPlaying(scaledDelta, currentTime);
+                    this.render();
+                }
                 break;
         }
 
@@ -625,6 +698,16 @@ class Game {
     updateCustomPlaying(deltaTime, currentTime) {
         const dt = Math.min(deltaTime, 50);
 
+        // Check for pause button tap first
+        if (this.input.checkTap()) {
+            const target = this.input.getTarget();
+            if (this.checkPauseButtonTap(target)) {
+                this.haptics.light();
+                this.pauseGame();
+                return;
+            }
+        }
+
         // Track play time
         this.playTime += dt / 1000;
 
@@ -743,6 +826,16 @@ class Game {
 
     update(deltaTime, currentTime) {
         const dt = Math.min(deltaTime, 50);
+
+        // Check for pause button tap first
+        if (this.input.checkTap()) {
+            const target = this.input.getTarget();
+            if (this.checkPauseButtonTap(target)) {
+                this.haptics.light();
+                this.pauseGame();
+                return; // Don't process other taps this frame
+            }
+        }
 
         // Track play time (in seconds)
         this.playTime += dt / 1000;
