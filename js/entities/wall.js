@@ -294,21 +294,24 @@ export class Wall {
     }
 
     drawBoostArrows(ctx, left, top) {
-        const arrowOffset = (this.pulseTimer * 50) % 30;
-        ctx.fillStyle = this.typeData.stripeColor;
+        // Arrows move from bottom to top to show boost direction
+        const arrowOffset = (this.pulseTimer * 80) % 20; // Faster animation, moving upward
+        ctx.strokeStyle = this.typeData.stripeColor;
+        ctx.lineWidth = 3;
 
-        for (let i = -1; i < 4; i++) {
+        // Draw multiple upward-pointing chevrons
+        for (let i = -1; i < 3; i++) {
             const arrowX = this.x;
-            const arrowY = top + this.height - 5 - i * 30 + arrowOffset;
+            // Start from bottom and move upward (subtract offset to go up)
+            const arrowY = top + this.height - 8 - i * 20 - arrowOffset;
 
-            if (arrowY > top && arrowY < top + this.height) {
+            if (arrowY > top + 2 && arrowY < top + this.height - 2) {
+                // Draw upward chevron (^)
                 ctx.beginPath();
-                ctx.moveTo(arrowX, arrowY - 8);
-                ctx.lineTo(arrowX + 8, arrowY);
-                ctx.lineTo(arrowX, arrowY + 8);
-                ctx.lineTo(arrowX - 8, arrowY);
-                ctx.closePath();
-                ctx.fill();
+                ctx.moveTo(arrowX - 12, arrowY + 6);
+                ctx.lineTo(arrowX, arrowY - 6);
+                ctx.lineTo(arrowX + 12, arrowY + 6);
+                ctx.stroke();
             }
         }
     }
