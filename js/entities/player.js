@@ -17,8 +17,11 @@ export class Player {
         this.bulletDamage = CONFIG.PLAYER_BULLET_DAMAGE;
         this.active = true;
         this.invincibleTimer = 0; // Invincibility after respawn
-        this.boostTimer = 0; // Boost effect timer
-        this.boostMultiplier = 1; // Current boost multiplier
+
+        // Boost system - affects game scroll speed
+        this.boostLevel = 0; // Current boost level (stacks)
+        this.maxBoostLevel = 5; // Maximum stacking
+        this.boostDecayRate = 0.3; // How fast boost decays per second
 
         const size = getSpriteSize(this.sprite);
         // Adjusted for smaller font (8px)
@@ -41,11 +44,11 @@ export class Player {
             this.invincibleTimer -= deltaTime;
         }
 
-        // Update boost timer
-        if (this.boostTimer > 0) {
-            this.boostTimer -= deltaTime;
-            if (this.boostTimer <= 0) {
-                this.boostMultiplier = 1;
+        // Gradually decay boost level
+        if (this.boostLevel > 0) {
+            this.boostLevel -= this.boostDecayRate * (deltaTime / 1000);
+            if (this.boostLevel < 0) {
+                this.boostLevel = 0;
             }
         }
 
@@ -89,20 +92,26 @@ export class Player {
         return this.health <= 0;
     }
 
-    // Apply a speed boost (from boost walls)
-    applyBoost(multiplier = 2, duration = 500) {
-        this.boostTimer = duration;
-        this.boostMultiplier = multiplier;
+    // Apply a speed boost (from boost walls) - stacks!
+    applyBoost(amount = 1) {
+        this.boostLevel = Math.min(this.boostLevel + amount, this.maxBoostLevel);
     }
 
-    // Get current fire rate (affected by boost)
-    getEffectiveFireRate() {
-        return this.fireRate / this.boostMultiplier;
+    // Get current speed multiplier (1.0 = normal, 2.0 = double speed)
+    getSpeedMultiplier() {
+        // Each boost level adds 0.5x to speed, so:
+        // 0 = 1.0x, 1 = 1.5x, 2 = 2.0x, 3 = 2.5x, 4 = 3.0x, 5 = 3.5x
+        return 1 + (this.boostLevel * 0.5);
     }
 
     // Check if currently boosted
     isBoosted() {
-        return this.boostTimer > 0;
+        return this.boostLevel > 0.1; // Small threshold for visual effects
+    }
+
+    // Get boost level for visual effects (0-1 normalized)
+    getBoostIntensity() {
+        return Math.min(this.boostLevel / this.maxBoostLevel, 1);
     }
 
     draw(renderer) {
@@ -120,21 +129,28 @@ export class Player {
         const shipWidth = 28;
         const shipHeight = 36;
 
-        // Determine color
+        // Determine color based on boost level
         let color = CONFIG.COLORS.PLAYER;
         let glowColor = null;
+        const boosted = this.isBoosted();
 
-        if (this.boostTimer > 0) {
-            color = '#88ff88';
+        if (boosted) {
+            // Interpolate color based on boost intensity
+            const intensity = this.getBoostIntensity();
+            const r = Math.floor(68 + (136 - 68) * intensity);
+            const g = Math.floor(170 + (255 - 170) * intensity);
+            const b = Math.floor(255 + (136 - 255) * intensity);
+            color = `rgb(${r}, ${g}, ${b})`;
             glowColor = '#44ff44';
         }
 
         ctx.save();
 
-        // Boost glow effect
+        // Boost glow effect - intensity scales with boost level
         if (glowColor) {
+            const intensity = this.getBoostIntensity();
             ctx.shadowColor = glowColor;
-            ctx.shadowBlur = 15 + Math.sin(Date.now() / 50) * 5;
+            ctx.shadowBlur = (10 + intensity * 20) + Math.sin(Date.now() / 50) * 5;
         }
 
         ctx.fillStyle = color;
@@ -168,10 +184,10 @@ export class Player {
         ctx.closePath();
         ctx.fill();
 
-        // Engine exhaust (lines at bottom)
-        ctx.strokeStyle = this.boostTimer > 0 ? '#44ff44' : '#ffaa00';
-        ctx.lineWidth = 2;
-        const exhaustFlicker = Math.random() * 4;
+        // Engine exhaust (lines at bottom) - longer when boosted
+        ctx.strokeStyle = boosted ? '#44ff44' : '#ffaa00';
+        ctx.lineWidth = boosted ? 3 : 2;
+        const exhaustFlicker = Math.random() * 4 + (boosted ? this.getBoostIntensity() * 8 : 0);
         ctx.beginPath();
         ctx.moveTo(this.x - 4, this.y + 6);
         ctx.lineTo(this.x - 4, this.y + 12 + exhaustFlicker);
@@ -203,7 +219,6 @@ export class Player {
         this.active = true;
         this.lastFireTime = 0;
         this.invincibleTimer = 0;
-        this.boostTimer = 0;
-        this.boostMultiplier = 1;
+        this.boostLevel = 0;
     }
 }

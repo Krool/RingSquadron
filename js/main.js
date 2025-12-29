@@ -698,6 +698,10 @@ class Game {
     updateCustomPlaying(deltaTime, currentTime) {
         const dt = Math.min(deltaTime, 50);
 
+        // Calculate boosted dt for scrolling entities
+        const speedMultiplier = this.player.getSpeedMultiplier();
+        const boostedDt = dt * speedMultiplier;
+
         // Check for pause button tap first
         if (this.input.checkTap()) {
             const target = this.input.getTarget();
@@ -767,16 +771,16 @@ class Game {
             }
         }
 
-        // Update enemies
+        // Update enemies (using boostedDt for scroll speed)
         const spawnCallback = this.spawnEnemy.bind(this);
         for (const enemy of this.enemies) {
-            const enemyBullets = enemy.update(dt, currentTime, this.player.x, this.player.y, spawnCallback);
+            const enemyBullets = enemy.update(boostedDt, currentTime, this.player.x, this.player.y, spawnCallback);
             if (enemyBullets.length > 0) {
                 this.enemyBullets.push(...enemyBullets);
             }
         }
 
-        // Update bullets
+        // Update bullets (normal dt - not boosted)
         for (const bullet of this.playerBullets) {
             bullet.update(dt);
         }
@@ -784,19 +788,19 @@ class Game {
             if (bullet.update) bullet.update(dt, this.player);
         }
 
-        // Update rings
+        // Update rings (using boostedDt for scroll speed)
         for (const ring of this.rings) {
-            ring.update(dt);
+            ring.update(boostedDt);
         }
 
-        // Update walls
+        // Update walls (using boostedDt for scroll speed)
         for (const wall of this.walls) {
-            wall.update(dt);
+            wall.update(boostedDt);
         }
 
-        // Update power-ups
+        // Update power-ups (using boostedDt for scroll speed)
         for (const powerUp of this.powerUps) {
-            powerUp.update(dt);
+            powerUp.update(boostedDt);
         }
 
         this.handleCollisions();
@@ -826,6 +830,11 @@ class Game {
 
     update(deltaTime, currentTime) {
         const dt = Math.min(deltaTime, 50);
+
+        // Calculate boosted dt for scrolling entities (enemies, rings, walls)
+        // This makes everything scroll faster when boosted
+        const speedMultiplier = this.player.getSpeedMultiplier();
+        const boostedDt = dt * speedMultiplier;
 
         // Check for pause button tap first
         if (this.input.checkTap()) {
@@ -997,10 +1006,10 @@ class Game {
             updatedAllies++;
         }
 
-        // Update enemies
+        // Update enemies (using boostedDt for scroll speed)
         const spawnCallback = this.spawnEnemy.bind(this);
         for (const enemy of this.enemies) {
-            const enemyBullets = enemy.update(dt, currentTime, this.player.x, this.player.y, spawnCallback);
+            const enemyBullets = enemy.update(boostedDt, currentTime, this.player.x, this.player.y, spawnCallback);
             if (enemyBullets.length > 0) {
                 this.enemyBullets.push(...enemyBullets);
                 // Play type-specific enemy sounds
@@ -1021,9 +1030,9 @@ class Game {
             }
         }
 
-        // Update power-ups
+        // Update power-ups (using boostedDt for scroll speed)
         for (const powerUp of this.powerUps) {
-            powerUp.update(dt);
+            powerUp.update(boostedDt);
 
             // Magnet effect - attract power-ups to player
             if (this.powerUpManager.hasMagnet()) {
@@ -1051,14 +1060,14 @@ class Game {
             }
         }
 
-        // Update rings
+        // Update rings (using boostedDt for scroll speed)
         for (const ring of this.rings) {
-            ring.update(dt);
+            ring.update(boostedDt);
         }
 
-        // Update walls
+        // Update walls (using boostedDt for scroll speed)
         for (const wall of this.walls) {
-            wall.update(dt);
+            wall.update(boostedDt);
         }
 
         this.handleCollisions();
@@ -1419,10 +1428,19 @@ class Game {
                     this.haptics.heavy();
                 }
             } else if (wallResult.boost && wallResult.wall) {
-                // Apply boost effect
+                // Apply boost effect - stacks!
                 const boostAmount = wallResult.wall.getBoostAmount();
                 this.player.applyBoost(boostAmount);
                 this.particles.spark(this.player.x, this.player.y, '#44ff44');
+                this.haptics.light();
+
+                // Show speed multiplier
+                const speedMult = this.player.getSpeedMultiplier();
+                this.floatingText.add(this.player.x, this.player.y - 30, `${speedMult.toFixed(1)}x SPEED`, {
+                    color: '#88ff88',
+                    size: 12,
+                    duration: 800
+                });
             }
 
             // Allies destroyed by blocking walls
@@ -1810,7 +1828,9 @@ class Game {
             this.player.health,
             this.player.maxHealth,
             activeAllies,
-            allyDamageMult
+            allyDamageMult,
+            this.player.boostLevel,
+            this.player.maxBoostLevel
         );
 
         // Draw combo

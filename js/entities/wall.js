@@ -42,7 +42,7 @@ export const WALL_TYPES = {
         destructible: false,
         pushable: false,
         boosts: true,
-        boostAmount: 3 // Speed multiplier applied to player
+        boostAmount: 1.5 // Boost level added (stacks up to 5)
     },
     ENEMY_PASS: {
         name: 'Enemy Pass',

@@ -151,7 +151,7 @@ export class Renderer {
     }
 
     // Draw the HUD (uses larger font)
-    drawHUD(gold, score, playerHealth, maxPlayerHealth, allyCount = 0, allyDamageMult = 1) {
+    drawHUD(gold, score, playerHealth, maxPlayerHealth, allyCount = 0, allyDamageMult = 1, boostLevel = 0, maxBoostLevel = 5) {
         const padding = 10;
         const barWidth = 80;
         const barHeight = 8;
@@ -189,8 +189,48 @@ export class Renderer {
             this.drawText(allyText, padding, padding + 35, CONFIG.COLORS.ALLY, 10);
         }
 
+        // Boost indicator (bottom left, only when boosted)
+        if (boostLevel > 0.1) {
+            this.drawBoostIndicator(boostLevel, maxBoostLevel);
+        }
+
         // Pause button (top center) - small and unobtrusive
         this.drawPauseButton();
+    }
+
+    // Draw boost level indicator
+    drawBoostIndicator(boostLevel, maxBoostLevel) {
+        const x = 10;
+        const y = this.canvas.height - 40;
+        const barWidth = 60;
+        const barHeight = 12;
+        const speedMult = 1 + (boostLevel * 0.5);
+
+        // Background
+        this.ctx.fillStyle = 'rgba(0, 50, 0, 0.7)';
+        this.ctx.fillRect(x, y, barWidth + 45, barHeight + 10);
+        this.ctx.strokeStyle = '#44ff44';
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(x, y, barWidth + 45, barHeight + 10);
+
+        // Boost bar
+        const fillWidth = (boostLevel / maxBoostLevel) * barWidth;
+        const gradient = this.ctx.createLinearGradient(x + 5, 0, x + 5 + barWidth, 0);
+        gradient.addColorStop(0, '#44ff44');
+        gradient.addColorStop(1, '#88ffaa');
+        this.ctx.fillStyle = gradient;
+        this.ctx.fillRect(x + 5, y + 5, fillWidth, barHeight);
+
+        // Bar outline
+        this.ctx.strokeStyle = '#226622';
+        this.ctx.strokeRect(x + 5, y + 5, barWidth, barHeight);
+
+        // Speed text
+        this.ctx.fillStyle = '#88ff88';
+        this.ctx.font = `bold 10px ${CONFIG.FONT_FAMILY}`;
+        this.ctx.textAlign = 'left';
+        this.ctx.fillText(`${speedMult.toFixed(1)}x`, x + barWidth + 10, y + 14);
+        this.ctx.textAlign = 'left';
     }
 
     // Draw pause button for in-game menu access
