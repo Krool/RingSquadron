@@ -526,29 +526,31 @@ class Game {
 
         const target = this.input.getTarget();
 
-        // Handle drag for panning
+        // Handle press/drag for panning and tap detection
         if (this.input.isPressed() && target) {
             if (!this.editorUI.isDragging) {
-                this.editorUI.handleDragStart(target.x, target.y);
+                // Press started
+                this.editorUI.handlePressStart(target.x, target.y);
             } else {
+                // Dragging
                 this.editorUI.handleDragMove(target.x, target.y);
-            }
-        } else {
-            if (this.editorUI.isDragging) {
-                this.editorUI.handleDragEnd();
             }
         }
 
-        // Handle tap (place element or button click)
+        // Handle release (tap detection happens in handlePressEnd)
         if (this.input.checkTap()) {
             if (target) {
-                const result = this.editorUI.handleTap(target.x, target.y);
+                // handlePressEnd determines if it was a tap or drag
+                // Only places element if it was a tap (not dragged)
+                const result = this.editorUI.handlePressEnd(target.x, target.y);
                 if (result === 'exit') {
                     this.exitEditor();
                 } else if (result === 'save') {
                     this.audio.playPowerUp();
                 } else if (result === 'placed') {
                     this.haptics.light();
+                } else if (result === 'level_loaded') {
+                    this.audio.playPowerUp();
                 }
             }
         }

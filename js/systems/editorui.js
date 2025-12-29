@@ -11,6 +11,7 @@
  * @module systems/editorui
  */
 import { CONFIG } from '../utils/config.js';
+import { EditorSystem } from './editor.js';
 
 export class EditorUI {
     constructor(editor) {
@@ -42,7 +43,14 @@ export class EditorUI {
         this.isDragging = false;
         this.lastDragY = 0;
         this.dragStartY = 0;
+        this.dragStartX = 0;
         this.wasDragged = false;  // True if significant drag occurred
+        this.pendingTap = null;   // Store tap position, only place on release if not dragged
+
+        // Load level mode
+        this.showingLoadList = false;
+        this.loadListLevels = [];
+        this.loadListScroll = 0;
     }
 
     show() {
@@ -68,62 +76,136 @@ export class EditorUI {
         this.editor.scroll(deltaY * 0.5);
     }
 
-    // Handle drag start
-    handleDragStart(x, y) {
+    // Handle press start (mouse down / touch start)
+    handlePressStart(x, y) {
         if (!this.visible) return;
-        // Only start drag in edit area
+
+        // If showing load list, handle separately
+        if (this.showingLoadList) {
+            return;
+        }
+
+        // Record start position for drag detection
+        this.dragStartX = x;
+        this.dragStartY = y;
+        this.lastDragY = y;
+        this.wasDragged = false;
+
+        // Only track as drag in edit area
         if (x < this.editAreaWidth && y < CONFIG.GAME_HEIGHT - this.toolbarHeight) {
             this.isDragging = true;
-            this.lastDragY = y;
-            this.dragStartY = y;
-            this.wasDragged = false;
+            this.pendingTap = { x, y };  // Store for potential placement on release
+        } else {
+            this.isDragging = false;
+            this.pendingTap = null;
         }
     }
 
     // Handle drag move
     handleDragMove(x, y) {
-        if (!this.visible || !this.isDragging) return;
+        if (!this.visible) return;
 
-        const deltaY = this.lastDragY - y;
-        this.lastDragY = y;
-
-        // Check if this is a significant drag
-        if (Math.abs(y - this.dragStartY) > 10) {
+        // Check if this is a significant drag (moved more than 8 pixels)
+        const dx = x - this.dragStartX;
+        const dy = y - this.dragStartY;
+        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
             this.wasDragged = true;
+            this.pendingTap = null;  // Cancel pending tap - this is a drag
         }
 
-        this.editor.scroll(deltaY);
+        // Pan the view if dragging in edit area
+        if (this.isDragging && this.wasDragged) {
+            const deltaY = this.lastDragY - y;
+            this.lastDragY = y;
+            this.editor.scroll(deltaY);
+        }
     }
 
-    // Handle drag end
-    handleDragEnd() {
-        this.isDragging = false;
-    }
-
-    // Handle tap/click input
-    handleTap(x, y) {
+    // Handle press end (mouse up / touch end)
+    handlePressEnd(x, y) {
         if (!this.visible) return null;
 
-        // If we were dragging significantly, don't place element
+        const wasShowingLoadList = this.showingLoadList;
+        this.isDragging = false;
+
+        // If showing load list, handle tap on list
+        if (this.showingLoadList) {
+            return this.handleLoadListTap(x, y);
+        }
+
+        // If we dragged, don't place anything
         if (this.wasDragged) {
             this.wasDragged = false;
+            this.pendingTap = null;
             return null;
         }
 
-        // Check toolbar (bottom)
+        // Check toolbar (bottom) - immediate response
         if (y > CONFIG.GAME_HEIGHT - this.toolbarHeight) {
             return this.handleToolbarTap(x, y);
         }
 
-        // Check sidebar (right)
+        // Check sidebar (right) - immediate response
         if (x > this.editAreaWidth) {
             const relativeX = x - this.editAreaWidth;
             return this.handleSidebarTap(y, relativeX);
         }
 
-        // Grid area - place element
-        this.editor.placeElement(x, y, this.editAreaWidth);
-        return 'placed';
+        // Grid area - place element only if we have a pending tap (wasn't dragged)
+        if (this.pendingTap) {
+            this.editor.placeElement(this.pendingTap.x, this.pendingTap.y, this.editAreaWidth);
+            this.pendingTap = null;
+            return 'placed';
+        }
+
+        return null;
+    }
+
+    // Legacy method for compatibility
+    handleTap(x, y) {
+        return this.handlePressEnd(x, y);
+    }
+
+    // Show the load level list
+    showLoadList() {
+        this.loadListLevels = Object.keys(EditorSystem.getSavedLevels());
+        this.showingLoadList = true;
+        this.loadListScroll = 0;
+    }
+
+    // Hide load list
+    hideLoadList() {
+        this.showingLoadList = false;
+    }
+
+    // Handle tap on load list
+    handleLoadListTap(x, y) {
+        const listX = 30;
+        const listY = 80;
+        const listWidth = CONFIG.GAME_WIDTH - 60;
+        const listHeight = CONFIG.GAME_HEIGHT - 160;
+        const itemHeight = 45;
+
+        // Check cancel button (top right)
+        if (x > CONFIG.GAME_WIDTH - 80 && y < 70) {
+            this.hideLoadList();
+            return 'load_cancel';
+        }
+
+        // Check if tap is in the list area
+        if (x >= listX && x <= listX + listWidth && y >= listY && y <= listY + listHeight) {
+            const relativeY = y - listY + this.loadListScroll;
+            const index = Math.floor(relativeY / itemHeight);
+
+            if (index >= 0 && index < this.loadListLevels.length) {
+                const levelName = this.loadListLevels[index];
+                this.editor.loadLevel(levelName);
+                this.hideLoadList();
+                return 'level_loaded';
+            }
+        }
+
+        return null;
     }
 
     handleToolbarTap(x, y) {
@@ -173,8 +255,8 @@ export class EditorUI {
             return isLeftButton ? 'value_down' : 'value_up';
         }
 
-        // Level name (tap to edit) at y=290
-        if (y >= 280 && y < 310) {
+        // Level name (tap to edit) at y=275
+        if (y >= 265 && y < 295) {
             const newName = prompt('Enter level name:', this.editor.levelName);
             if (newName !== null && newName.trim()) {
                 this.editor.setLevelName(newName.trim());
@@ -182,15 +264,21 @@ export class EditorUI {
             return 'edit_name';
         }
 
-        // Save button at y=330
-        if (y >= 330 && y < 360) {
+        // Save button at y=305
+        if (y >= 305 && y < 333) {
             this.editor.saveLevel();
             this.saveFlash = 1;
             return 'save';
         }
 
-        // Clear button at y=370
-        if (y >= 370 && y < 395) {
+        // Load button at y=340
+        if (y >= 340 && y < 368) {
+            this.showLoadList();
+            return 'show_load';
+        }
+
+        // Clear button at y=375
+        if (y >= 375 && y < 400) {
             this.editor.clearCurrentWave();
             return 'clear';
         }
@@ -230,6 +318,88 @@ export class EditorUI {
             ctx.fillStyle = `rgba(0, 255, 100, ${this.saveFlash * 0.3})`;
             ctx.fillRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
         }
+
+        // Draw load list overlay if showing
+        if (this.showingLoadList) {
+            this.drawLoadList(ctx);
+        }
+    }
+
+    drawLoadList(ctx) {
+        // Darken background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+        ctx.fillRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+
+        // Title
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold 20px ${CONFIG.FONT_FAMILY}`;
+        ctx.textAlign = 'center';
+        ctx.fillText('LOAD LEVEL', CONFIG.GAME_WIDTH / 2, 45);
+
+        // Cancel button
+        ctx.fillStyle = '#ff4444';
+        ctx.font = `bold 14px ${CONFIG.FONT_FAMILY}`;
+        ctx.textAlign = 'right';
+        ctx.fillText('CANCEL', CONFIG.GAME_WIDTH - 20, 45);
+
+        const listX = 30;
+        const listY = 80;
+        const listWidth = CONFIG.GAME_WIDTH - 60;
+        const listHeight = CONFIG.GAME_HEIGHT - 160;
+        const itemHeight = 45;
+
+        // List background
+        ctx.fillStyle = 'rgba(30, 30, 50, 0.8)';
+        ctx.fillRect(listX, listY, listWidth, listHeight);
+        ctx.strokeStyle = '#444466';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(listX, listY, listWidth, listHeight);
+
+        if (this.loadListLevels.length === 0) {
+            ctx.fillStyle = '#666666';
+            ctx.font = `14px ${CONFIG.FONT_FAMILY}`;
+            ctx.textAlign = 'center';
+            ctx.fillText('No saved levels', CONFIG.GAME_WIDTH / 2, listY + listHeight / 2);
+        } else {
+            // Clip to list area
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(listX, listY, listWidth, listHeight);
+            ctx.clip();
+
+            // Draw level items
+            this.loadListLevels.forEach((name, i) => {
+                const itemY = listY + i * itemHeight - this.loadListScroll;
+
+                if (itemY > listY - itemHeight && itemY < listY + listHeight) {
+                    // Item background
+                    ctx.fillStyle = i % 2 === 0 ? 'rgba(50, 50, 80, 0.5)' : 'rgba(40, 40, 70, 0.5)';
+                    ctx.fillRect(listX + 5, itemY + 2, listWidth - 10, itemHeight - 4);
+
+                    // Level name
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = `bold 14px ${CONFIG.FONT_FAMILY}`;
+                    ctx.textAlign = 'left';
+                    ctx.fillText(name, listX + 15, itemY + 28);
+
+                    // Load indicator
+                    ctx.fillStyle = '#44aaff';
+                    ctx.font = `12px ${CONFIG.FONT_FAMILY}`;
+                    ctx.textAlign = 'right';
+                    ctx.fillText('TAP TO LOAD', listX + listWidth - 15, itemY + 28);
+                }
+            });
+
+            ctx.restore();
+        }
+
+        // Instructions
+        ctx.fillStyle = '#666666';
+        ctx.font = `10px ${CONFIG.FONT_FAMILY}`;
+        ctx.textAlign = 'center';
+        ctx.fillText('Tap a level to load it into the editor', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT - 50);
+
+        ctx.textAlign = 'left';
     }
 
     drawGrid(ctx) {
@@ -522,14 +692,14 @@ export class EditorUI {
         // Level name (editable)
         ctx.fillStyle = '#666666';
         ctx.font = `8px ${CONFIG.FONT_FAMILY}`;
-        ctx.fillText('NAME:', centerX, 275);
+        ctx.fillText('NAME:', centerX, 260);
 
         // Name box (tap to edit)
         ctx.fillStyle = 'rgba(50, 50, 80, 0.5)';
-        ctx.fillRect(x + 3, 282, sw - 6, 22);
+        ctx.fillRect(x + 3, 267, sw - 6, 22);
         ctx.strokeStyle = '#666688';
         ctx.lineWidth = 1;
-        ctx.strokeRect(x + 3, 282, sw - 6, 22);
+        ctx.strokeRect(x + 3, 267, sw - 6, 22);
 
         ctx.fillStyle = '#aaaaff';
         ctx.font = `bold 9px ${CONFIG.FONT_FAMILY}`;
@@ -538,25 +708,26 @@ export class EditorUI {
         if (displayName.length > 8) {
             displayName = displayName.substring(0, 7) + '…';
         }
-        ctx.fillText(displayName, centerX, 296);
+        ctx.fillText(displayName, centerX, 281);
 
-        // Save/Clear buttons
+        // Save/Load/Clear buttons
         const saveColor = this.saveFlash > 0 ? '#00ff88' : '#4488ff';
-        this.drawButton(ctx, x + 3, 330, sw - 6, 28, 'SAVE', saveColor);
-        this.drawButton(ctx, x + 3, 370, sw - 6, 22, 'Clear', '#663333');
+        this.drawButton(ctx, x + 3, 305, sw - 6, 25, 'SAVE', saveColor);
+        this.drawButton(ctx, x + 3, 340, sw - 6, 25, 'LOAD', '#aa8800');
+        this.drawButton(ctx, x + 3, 375, sw - 6, 22, 'Clear', '#663333');
 
         // Stats
         const stats = this.editor.getWaveStats();
         ctx.fillStyle = '#555555';
         ctx.font = `8px ${CONFIG.FONT_FAMILY}`;
-        ctx.fillText(`R:${stats.rings} E:${stats.enemies}`, centerX, 410);
-        ctx.fillText(`W:${stats.walls} G:${stats.gates}`, centerX, 422);
+        ctx.fillText(`R:${stats.rings} E:${stats.enemies}`, centerX, 415);
+        ctx.fillText(`W:${stats.walls} G:${stats.gates}`, centerX, 427);
 
         // Scroll hint
         ctx.fillStyle = '#444444';
         ctx.font = `7px ${CONFIG.FONT_FAMILY}`;
-        ctx.fillText('Drag/Scroll', centerX, 445);
-        ctx.fillText('to pan', centerX, 455);
+        ctx.fillText('Drag/Scroll', centerX, 450);
+        ctx.fillText('to pan', centerX, 460);
 
         // Exit button
         this.drawButton(ctx, x + 3, CONFIG.GAME_HEIGHT - this.toolbarHeight - 40, sw - 6, 28, 'EXIT', '#aa3333');
