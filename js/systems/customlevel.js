@@ -102,13 +102,13 @@ export class CustomLevelManager {
     // Spawn all entities for current wave
     // Y positions in editor represent spawn order - higher Y = spawns later (further above screen)
     spawnWaveEntities(wave, rings, enemies, walls, currentTime) {
-        // Use edit area width for X normalization (matches editor)
-        const editAreaWidth = CONFIG.GAME_WIDTH - 75;  // Match sidebar width from editorui
+        // Use FULL game width for spawning - editor normalizes X to 0-1 range
+        const gameWidth = CONFIG.GAME_WIDTH;
 
         // Spawn rings
         if (wave.rings) {
             for (const ringDef of wave.rings) {
-                const x = ringDef.x * editAreaWidth;
+                const x = ringDef.x * gameWidth;
                 const ring = new Ring(x, -ringDef.y, ringDef.value);
 
                 if (ringDef.path && ringDef.path !== 'straight') {
@@ -123,7 +123,7 @@ export class CustomLevelManager {
         // Spawn gates (as rings with multiplier)
         if (wave.gates) {
             for (const gateDef of wave.gates) {
-                const x = gateDef.x * editAreaWidth;
+                const x = gateDef.x * gameWidth;
                 const ring = new Ring(x, -gateDef.y, 0);
                 ring.setMultiplierGate(gateDef.type);
                 rings.push(ring);
@@ -134,7 +134,7 @@ export class CustomLevelManager {
         // Spawn enemies at their Y positions
         if (wave.enemies) {
             for (const enemyDef of wave.enemies) {
-                const x = enemyDef.x * editAreaWidth;
+                const x = enemyDef.x * gameWidth;
                 const y = -(enemyDef.y || 50);  // Spawn above screen
                 const enemy = new Enemy(x, y, enemyDef.type);
                 enemies.push(enemy);
@@ -145,7 +145,7 @@ export class CustomLevelManager {
         // Spawn walls at their Y positions
         if (wave.walls) {
             for (const wallDef of wave.walls) {
-                const laneWidth = editAreaWidth / 3;
+                const laneWidth = gameWidth / 3;
                 const x = laneWidth * wallDef.lane + laneWidth / 2;
                 const y = -(wallDef.y || 40);  // Spawn above screen
                 const wall = new Wall(x, y, wallDef.lane, wallDef.type || 'SOLID');
