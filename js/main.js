@@ -1224,7 +1224,7 @@ class Game {
                     this.particles.explosion(this.player.x, this.player.y, 2);
                     this.screenFx.shake(20, 0.5);
                     this.screenFx.flash('#ff0000', 0.4, 0.05);
-                    this.haptics.death();
+                    this.haptics.heavy();
                 }
             }
 
