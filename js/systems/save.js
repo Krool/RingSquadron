@@ -304,13 +304,13 @@ export class HighScoreUI {
         y += 40;
 
         if (scores.length === 0) {
-            ctx.fillStyle = '#888888';
+            ctx.fillStyle = '#aaaaaa';
             ctx.font = `14px ${fontFamily}`;
             ctx.fillText('No scores yet!', centerX, y);
             ctx.fillText('Play a game to set a record.', centerX, y + 25);
         } else {
             // Header
-            ctx.fillStyle = '#888888';
+            ctx.fillStyle = '#aaaaaa';
             ctx.font = `10px ${fontFamily}`;
             ctx.textAlign = 'left';
             ctx.fillText('RANK', 30, y);
@@ -369,7 +369,7 @@ export class HighScoreUI {
         });
 
         // Close instruction
-        ctx.fillStyle = '#666666';
+        ctx.fillStyle = '#888888';
         ctx.font = `10px ${fontFamily}`;
         ctx.fillText('TAP to close', centerX, canvasHeight - 20);
     }

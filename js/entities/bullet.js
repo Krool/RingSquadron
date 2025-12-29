@@ -38,16 +38,21 @@ export class Bullet {
     }
 
     draw(renderer) {
+        const ctx = renderer.ctx;
         const color = this.isPlayerBullet
             ? CONFIG.COLORS.PLAYER_BULLET
             : CONFIG.COLORS.ENEMY_BULLET;
 
+        ctx.fillStyle = color;
+
         if (this.isPlayerBullet) {
-            // Player bullets: small line
-            renderer.drawTextFullyCentered('|', this.x, this.y, color, this.displaySize);
+            // Player bullets: small rectangle
+            ctx.fillRect(this.x - 1, this.y - 4, 2, 8);
         } else {
             // Enemy bullets: larger filled circle for visibility
-            renderer.drawTextFullyCentered('●', this.x, this.y, color, this.displaySize);
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
 

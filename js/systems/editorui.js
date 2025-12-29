@@ -12,6 +12,7 @@
  */
 import { CONFIG } from '../utils/config.js';
 import { EditorSystem } from './editor.js';
+import { WALL_TYPES } from '../entities/wall.js';
 
 export class EditorUI {
     constructor(editor) {
@@ -252,6 +253,8 @@ export class EditorUI {
                 }
             } else if (this.editor.selectedTool === 'enemy') {
                 this.editor.cycleEnemyType(isLeftButton ? -1 : 1);
+            } else if (this.editor.selectedTool === 'wall') {
+                this.editor.cycleWallType(isLeftButton ? -1 : 1);
             }
             return isLeftButton ? 'value_down' : 'value_up';
         }
@@ -492,20 +495,29 @@ export class EditorUI {
             const x = laneWidth * w.lane + laneWidth / 2;
             const screenY = toScreenY(w.y || 60);
             const width = laneWidth - 20;
+            const wallType = WALL_TYPES[w.type] || WALL_TYPES.SOLID;
 
             // Only draw if visible
             if (screenY > -40 && screenY < editHeight + 40) {
-                ctx.fillStyle = 'rgba(100, 100, 120, 0.6)';
+                ctx.fillStyle = wallType.color;
+                ctx.globalAlpha = 0.7;
                 ctx.fillRect(x - width / 2, screenY - 15, width, 30);
-                ctx.strokeStyle = '#666677';
+                ctx.globalAlpha = 1;
+
+                // Stripes on edges
+                ctx.fillStyle = wallType.stripeColor;
+                ctx.fillRect(x - width / 2, screenY - 15, 6, 30);
+                ctx.fillRect(x + width / 2 - 6, screenY - 15, 6, 30);
+
+                ctx.strokeStyle = wallType.stripeColor;
                 ctx.lineWidth = 2;
                 ctx.strokeRect(x - width / 2, screenY - 15, width, 30);
 
-                ctx.fillStyle = '#ff4444';
-                ctx.font = `bold 10px ${CONFIG.FONT_FAMILY}`;
+                ctx.fillStyle = wallType.textColor;
+                ctx.font = `bold 8px ${CONFIG.FONT_FAMILY}`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('WALL', x, screenY);
+                ctx.fillText(wallType.text, x, screenY);
             }
         });
 
@@ -685,7 +697,7 @@ export class EditorUI {
         this.drawButton(ctx, x + 3, 130, sw - 6, 22, '+ Add', '#336633');
         this.drawButton(ctx, x + 3, 160, sw - 6, 22, '- Del', '#663333');
 
-        // Value controls (for ring/enemy)
+        // Value controls (for ring/enemy/wall)
         ctx.fillStyle = '#888888';
         ctx.font = `9px ${CONFIG.FONT_FAMILY}`;
 
@@ -704,10 +716,18 @@ export class EditorUI {
             ctx.fillText(this.editor.selectedEnemyType, centerX, 218);
             this.drawButton(ctx, x + 3, 230, sw/2 - 5, 22, '<', '#555555');
             this.drawButton(ctx, x + sw/2 + 2, 230, sw/2 - 5, 22, '>', '#555555');
+        } else if (this.editor.selectedTool === 'wall') {
+            const wallInfo = this.editor.getWallTypeInfo();
+            ctx.fillText('Type:', centerX, 200);
+            ctx.font = `bold 9px ${CONFIG.FONT_FAMILY}`;
+            ctx.fillStyle = wallInfo.stripeColor;
+            ctx.fillText(this.editor.selectedWallType, centerX, 218);
+            this.drawButton(ctx, x + 3, 230, sw/2 - 5, 22, '<', '#555555');
+            this.drawButton(ctx, x + sw/2 + 2, 230, sw/2 - 5, 22, '>', '#555555');
         } else {
             ctx.fillStyle = '#555555';
-            ctx.fillText('Select', centerX, 200);
-            ctx.fillText('Ring/Enemy', centerX, 215);
+            ctx.fillText('Select tool', centerX, 200);
+            ctx.fillText('for options', centerX, 215);
         }
 
         // Level name (editable)

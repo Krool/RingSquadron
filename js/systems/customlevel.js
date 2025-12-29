@@ -148,7 +148,7 @@ export class CustomLevelManager {
                 const laneWidth = editAreaWidth / 3;
                 const x = laneWidth * wallDef.lane + laneWidth / 2;
                 const y = -(wallDef.y || 40);  // Spawn above screen
-                const wall = new Wall(x, y, wallDef.lane);
+                const wall = new Wall(x, y, wallDef.lane, wallDef.type || 'SOLID');
                 walls.push(wall);
                 this.waveWalls.push(wall);
             }

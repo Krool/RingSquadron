@@ -12,6 +12,7 @@
  * @module systems/editor
  */
 import { CONFIG } from '../utils/config.js';
+import { Wall, WALL_TYPES } from '../entities/wall.js';
 
 export class EditorSystem {
     constructor() {
@@ -23,6 +24,7 @@ export class EditorSystem {
         this.selectedTool = 'ring';  // 'ring', 'enemy', 'wall', 'gate_x2', 'gate_div', 'erase'
         this.selectedEnemyType = 'BASIC';
         this.selectedRingValue = 3;
+        this.selectedWallType = 'SOLID';
 
         // Grid settings
         this.gridSize = 40;
@@ -34,6 +36,9 @@ export class EditorSystem {
 
         // Available enemy types for the editor
         this.enemyTypes = ['BASIC', 'FAST', 'TANK', 'SNIPER', 'BOMBER', 'SWARM', 'SHIELD'];
+
+        // Available wall types
+        this.wallTypes = Object.keys(WALL_TYPES);
     }
 
     createEmptyWave() {
@@ -141,8 +146,11 @@ export class EditorSystem {
                 const existingWall = wave.walls.findIndex(w =>
                     w.lane === lane && Math.abs(w.y - snappedY) < 30
                 );
-                if (existingWall < 0) {
-                    wave.walls.push({ lane, y: snappedY });
+                if (existingWall >= 0) {
+                    // Update existing wall type
+                    wave.walls[existingWall].type = this.selectedWallType;
+                } else {
+                    wave.walls.push({ lane, y: snappedY, type: this.selectedWallType });
                 }
                 break;
 
@@ -223,6 +231,18 @@ export class EditorSystem {
         const currentIndex = this.enemyTypes.indexOf(this.selectedEnemyType);
         const newIndex = (currentIndex + direction + this.enemyTypes.length) % this.enemyTypes.length;
         this.selectedEnemyType = this.enemyTypes[newIndex];
+    }
+
+    // Cycle through wall types
+    cycleWallType(direction = 1) {
+        const currentIndex = this.wallTypes.indexOf(this.selectedWallType);
+        const newIndex = (currentIndex + direction + this.wallTypes.length) % this.wallTypes.length;
+        this.selectedWallType = this.wallTypes[newIndex];
+    }
+
+    // Get wall type display info
+    getWallTypeInfo() {
+        return WALL_TYPES[this.selectedWallType] || WALL_TYPES.SOLID;
     }
 
     // Set level name
@@ -313,5 +333,7 @@ export class EditorSystem {
         this.selectedTool = 'ring';
         this.selectedEnemyType = 'BASIC';
         this.selectedRingValue = 3;
+        this.selectedWallType = 'SOLID';
+        this.scrollOffset = 0;
     }
 }

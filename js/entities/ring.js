@@ -226,6 +226,8 @@ export class Ring {
     draw(renderer) {
         if (!this.active) return;
 
+        const ctx = renderer.ctx;
+
         // Pulse effect
         const pulse = Math.sin(this.pulseTimer * 3) * 0.2 + 0.8;
 
@@ -237,40 +239,62 @@ export class Ring {
             const textColor = isMultiply ? '#ffff88' : '#ff6666';
             const text = isMultiply ? 'x2' : '/2';
 
-            // Draw thicker gate frame
-            const gateSprite = [
-                ' |===| ',
-                '||   ||',
-                ' |===| '
-            ];
-            renderer.drawSpriteCentered(gateSprite, this.x, this.y, frameColor);
+            // Draw gate frame using canvas primitives
+            const gateWidth = 40;
+            const gateHeight = 24;
+            ctx.strokeStyle = frameColor;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(this.x - gateWidth / 2, this.y - gateHeight / 2, gateWidth, gateHeight);
+
+            // Inner rectangle
+            ctx.lineWidth = 1;
+            ctx.strokeRect(this.x - gateWidth / 2 + 4, this.y - gateHeight / 2 + 4, gateWidth - 8, gateHeight - 8);
 
             // Draw the multiplier text
-            renderer.drawTextFullyCentered(text, this.x, this.y, textColor, 14);
+            ctx.fillStyle = textColor;
+            ctx.font = `bold 14px ${CONFIG.FONT_FAMILY}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, this.x, this.y);
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
             return;
         }
 
         // Normal ring: Color based on value (negative = red, positive = blue)
-        const color = this.value < 0 ? CONFIG.COLORS.RING_NEGATIVE : CONFIG.COLORS.RING;
+        const isNegative = this.value < 0;
+        const ringColor = isNegative ? '#ff4466' : '#44aaff';
+        const textColor = isNegative ? '#ff6666' : '#66bbff';
 
-        // Draw ring frame (without number - we'll draw it separately for clarity)
-        const frameSprite = [
-            ' .---. ',
-            '(     )',
-            ' \'---\' '
-        ];
-        renderer.drawSpriteCentered(frameSprite, this.x, this.y, color);
+        // Draw ring as circle using canvas primitives
+        const radius = 15 * pulse;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = ringColor;
+        ctx.lineWidth = 2;
+        ctx.stroke();
 
-        // Draw the number prominently in the center (fully centered)
+        // Draw inner highlight
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, radius - 4, 0, Math.PI * 2);
+        ctx.strokeStyle = isNegative ? 'rgba(255, 100, 100, 0.3)' : 'rgba(100, 150, 255, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Draw the number prominently in the center
         let numStr;
         if (this.value >= 0) {
             numStr = '+' + this.value;
         } else {
             numStr = this.value.toString();
         }
-        // Negative = red text, positive = blue text
-        const textColor = this.value < 0 ? '#ff6666' : '#66bbff';
-        renderer.drawTextFullyCentered(numStr, this.x, this.y, textColor, 12);
+        ctx.fillStyle = textColor;
+        ctx.font = `bold 10px ${CONFIG.FONT_FAMILY}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(numStr, this.x, this.y);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
     }
 
     getBounds() {

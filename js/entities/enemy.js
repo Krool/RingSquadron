@@ -384,6 +384,8 @@ export class Enemy {
     draw(renderer) {
         if (!this.active) return;
 
+        const ctx = renderer.ctx;
+
         // Determine color based on state
         let color = CONFIG.COLORS.ENEMY;
         if (this.flashTimer > 0) {
@@ -406,18 +408,26 @@ export class Enemy {
             }
         }
 
+        ctx.save();
+
         // Draw entry trail if entering
         if (this.entering) {
-            const alpha = 0.3;
-            renderer.ctx.globalAlpha = alpha;
+            ctx.globalAlpha = 0.3;
         }
 
-        renderer.drawSpriteCentered(this.sprite, this.x, this.y, color);
+        ctx.fillStyle = color;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+
+        // Draw enemy ship based on type using canvas primitives
+        this.drawShipShape(ctx, color);
 
         // Reset alpha
         if (this.entering) {
-            renderer.ctx.globalAlpha = 1;
+            ctx.globalAlpha = 1;
         }
+
+        ctx.restore();
 
         // Draw BUS lane warning
         if (this.type === 'BUS' && this.chargeState === 'telegraph') {
@@ -443,6 +453,150 @@ export class Enemy {
                 '#ff6666',
                 CONFIG.COLORS.HEALTH_BAR_BG
             );
+        }
+    }
+
+    drawShipShape(ctx, color) {
+        ctx.fillStyle = color;
+
+        switch (this.type) {
+            case 'FAST':
+                // Sleek arrow shape
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 12);
+                ctx.lineTo(this.x - 10, this.y - 8);
+                ctx.lineTo(this.x - 4, this.y - 4);
+                ctx.lineTo(this.x, this.y - 10);
+                ctx.lineTo(this.x + 4, this.y - 4);
+                ctx.lineTo(this.x + 10, this.y - 8);
+                ctx.closePath();
+                ctx.fill();
+                break;
+
+            case 'TANK':
+                // Bulky rectangular shape
+                ctx.fillRect(this.x - 16, this.y - 16, 32, 28);
+                // Front armor
+                ctx.beginPath();
+                ctx.moveTo(this.x - 16, this.y + 12);
+                ctx.lineTo(this.x, this.y + 22);
+                ctx.lineTo(this.x + 16, this.y + 12);
+                ctx.closePath();
+                ctx.fill();
+                // Side panels
+                ctx.fillRect(this.x - 20, this.y - 12, 4, 20);
+                ctx.fillRect(this.x + 16, this.y - 12, 4, 20);
+                break;
+
+            case 'BOMBER':
+                // Round body with bomb bay
+                ctx.beginPath();
+                ctx.arc(this.x, this.y - 4, 12, 0, Math.PI * 2);
+                ctx.fill();
+                // Wings
+                ctx.fillRect(this.x - 18, this.y - 6, 8, 12);
+                ctx.fillRect(this.x + 10, this.y - 6, 8, 12);
+                // Bomb indicator
+                ctx.fillStyle = '#ffaa00';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y + 8, 5, 0, Math.PI * 2);
+                ctx.fill();
+                break;
+
+            case 'SNIPER':
+                // Long, thin shape
+                ctx.fillRect(this.x - 4, this.y - 18, 8, 36);
+                // Scope/barrel
+                ctx.fillRect(this.x - 8, this.y - 10, 16, 8);
+                // Targeting lines
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 18);
+                ctx.lineTo(this.x, this.y + 28);
+                ctx.stroke();
+                break;
+
+            case 'SWARM':
+                // Small diamond
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - 8);
+                ctx.lineTo(this.x + 8, this.y);
+                ctx.lineTo(this.x, this.y + 8);
+                ctx.lineTo(this.x - 8, this.y);
+                ctx.closePath();
+                ctx.fill();
+                break;
+
+            case 'SHIELD':
+                // Hexagonal shield shape
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - 14);
+                ctx.lineTo(this.x + 12, this.y - 7);
+                ctx.lineTo(this.x + 12, this.y + 7);
+                ctx.lineTo(this.x, this.y + 14);
+                ctx.lineTo(this.x - 12, this.y + 7);
+                ctx.lineTo(this.x - 12, this.y - 7);
+                ctx.closePath();
+                ctx.fill();
+                // Inner body
+                ctx.fillStyle = '#aa4444';
+                ctx.fillRect(this.x - 6, this.y - 6, 12, 12);
+                break;
+
+            case 'CARRIER':
+                // Large rectangular carrier
+                ctx.fillRect(this.x - 24, this.y - 14, 48, 28);
+                // Bay doors
+                ctx.strokeStyle = '#444444';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x - 18, this.y + 2, 10, 8);
+                ctx.strokeRect(this.x - 5, this.y + 2, 10, 8);
+                ctx.strokeRect(this.x + 8, this.y + 2, 10, 8);
+                break;
+
+            case 'DRONE':
+                // Tiny triangle
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 8);
+                ctx.lineTo(this.x - 6, this.y - 6);
+                ctx.lineTo(this.x + 6, this.y - 6);
+                ctx.closePath();
+                ctx.fill();
+                break;
+
+            case 'BUS':
+                // Long vertical bus shape
+                ctx.fillRect(this.x - 14, this.y - 20, 28, 40);
+                // Windows
+                ctx.fillStyle = '#222222';
+                ctx.fillRect(this.x - 10, this.y - 16, 20, 6);
+                ctx.fillRect(this.x - 10, this.y - 6, 20, 6);
+                ctx.fillRect(this.x - 10, this.y + 4, 20, 6);
+                // Front
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.moveTo(this.x - 14, this.y + 20);
+                ctx.lineTo(this.x, this.y + 28);
+                ctx.lineTo(this.x + 14, this.y + 20);
+                ctx.closePath();
+                ctx.fill();
+                break;
+
+            default: // BASIC
+                // Standard inverted triangle ship
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 16);
+                ctx.lineTo(this.x - 14, this.y - 12);
+                ctx.lineTo(this.x + 14, this.y - 12);
+                ctx.closePath();
+                ctx.fill();
+                // Body rectangle
+                ctx.fillRect(this.x - 10, this.y - 12, 20, 12);
+                // Cockpit
+                ctx.fillStyle = '#880000';
+                ctx.fillRect(this.x - 4, this.y - 8, 8, 6);
+                break;
         }
     }
 

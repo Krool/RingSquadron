@@ -127,7 +127,6 @@ export class GameOverUI {
     drawTitle(ctx, centerX) {
         const title = this.isVictory ? 'VICTORY' : 'DEFEATED';
         const titleColor = this.isVictory ? '#00ff88' : '#ff4444';
-        const subtitle = this.isVictory ? 'Mission Complete!' : 'Game Over';
 
         // Glow effect
         ctx.save();
@@ -154,12 +153,7 @@ export class GameOverUI {
 
         ctx.restore();
 
-        // Subtitle
-        ctx.fillStyle = '#888888';
-        ctx.font = `14px ${CONFIG.FONT_FAMILY}`;
-        ctx.fillText(subtitle, centerX, 95);
-
-        // New high score banner
+        // New high score banner (moved up, no subtitle)
         if (this.stats.isNewHighScore) {
             const pulse = Math.sin(this.animTime * 6) * 0.2 + 0.8;
             ctx.save();
@@ -167,7 +161,7 @@ export class GameOverUI {
             ctx.shadowBlur = 15;
             ctx.fillStyle = '#ffdd00';
             ctx.font = `bold ${Math.floor(16 * pulse)}px ${CONFIG.FONT_FAMILY}`;
-            ctx.fillText('★ NEW HIGH SCORE ★', centerX, 120);
+            ctx.fillText('★ NEW HIGH SCORE ★', centerX, 95);
             ctx.restore();
         }
     }
@@ -190,15 +184,15 @@ export class GameOverUI {
         ctx.lineWidth = 1;
         ctx.strokeRect(panelLeft + 4, panelTop + 4, panelWidth - 8, 242);
 
-        // Stats rows
+        // Stats rows - improved readability with larger labels
         const statRows = [
             { label: 'SCORE', value: (stats.score || 0).toLocaleString(), color: '#ffffff', size: 22 },
             { label: 'WAVE', value: stats.wave || 1, color: '#88aaff', size: 18 },
-            { label: 'ENEMIES DEFEATED', value: stats.kills || 0, color: '#ff8866', size: 16 },
-            { label: 'ALLIES RECRUITED', value: stats.alliesRecruited || 0, color: '#66ff88', size: 16 },
+            { label: 'ENEMIES', value: stats.kills || 0, color: '#ff8866', size: 16 },
+            { label: 'ALLIES', value: stats.alliesRecruited || 0, color: '#66ff88', size: 16 },
             { label: 'MAX COMBO', value: `${stats.maxCombo || 0}x`, color: '#ffaa00', size: 16 },
             { label: 'TIME', value: this.formatTime(stats.playTime || 0), color: '#aaaaaa', size: 16 },
-            { label: 'GOLD EARNED', value: `+${stats.goldEarned || 0}`, color: '#ffdd00', size: 18 }
+            { label: 'GOLD', value: `+${stats.goldEarned || 0}`, color: '#ffdd00', size: 18 }
         ];
 
         let y = panelTop + 25;
@@ -212,9 +206,9 @@ export class GameOverUI {
             if (alpha > 0) {
                 ctx.globalAlpha = alpha;
 
-                // Label
-                ctx.fillStyle = '#666688';
-                ctx.font = `10px ${CONFIG.FONT_FAMILY}`;
+                // Label - larger and brighter for readability
+                ctx.fillStyle = '#9999bb';
+                ctx.font = `bold 12px ${CONFIG.FONT_FAMILY}`;
                 ctx.textAlign = 'left';
                 ctx.fillText(row.label, panelLeft + 20, y);
 
@@ -226,11 +220,11 @@ export class GameOverUI {
 
                 // Separator line
                 if (index < statRows.length - 1) {
-                    ctx.strokeStyle = 'rgba(100, 100, 150, 0.2)';
+                    ctx.strokeStyle = 'rgba(100, 100, 150, 0.3)';
                     ctx.lineWidth = 1;
                     ctx.beginPath();
-                    ctx.moveTo(panelLeft + 15, y + 12);
-                    ctx.lineTo(panelLeft + panelWidth - 15, y + 12);
+                    ctx.moveTo(panelLeft + 15, y + 14);
+                    ctx.lineTo(panelLeft + panelWidth - 15, y + 14);
                     ctx.stroke();
                 }
 
@@ -302,7 +296,7 @@ export class GameOverUI {
             ctx.shadowBlur = 0;
 
             // Icon
-            ctx.fillStyle = isHovered ? btn.color : '#666666';
+            ctx.fillStyle = isHovered ? btn.color : '#999999';
             ctx.font = `bold 20px ${CONFIG.FONT_FAMILY}`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';

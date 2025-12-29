@@ -314,20 +314,20 @@ export class WeaponSelectUI {
             }
 
             // Description
-            ctx.fillStyle = '#888888';
+            ctx.fillStyle = '#aaaaaa';
             ctx.font = `10px ${fontFamily}`;
             ctx.textAlign = 'left';
             ctx.fillText(weapon.description, 50, y + 15);
 
             // Stats
-            ctx.fillStyle = '#666666';
+            ctx.fillStyle = '#999999';
             ctx.fillText(`DMG: ${weapon.damage}  RATE: ${Math.round(1000 / weapon.fireRate)}/s`, 50, y + 28);
 
             y += 50;
         });
 
         // Instructions
-        ctx.fillStyle = '#666666';
+        ctx.fillStyle = '#888888';
         ctx.font = `10px ${fontFamily}`;
         ctx.textAlign = 'center';
         ctx.fillText('TAP to equip | SWIPE to navigate', centerX, canvasHeight - 30);

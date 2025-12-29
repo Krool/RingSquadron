@@ -96,14 +96,24 @@ export class Ally {
     draw(renderer) {
         if (!this.active) return;
 
-        // Draw tiny ally as a simple character
-        renderer.drawTextCentered('^', this.x, this.y, CONFIG.COLORS.ALLY, 8);
+        const ctx = renderer.ctx;
+
+        // Draw tiny ally as a small triangle using canvas primitives
+        ctx.fillStyle = CONFIG.COLORS.ALLY;
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y - 4);
+        ctx.lineTo(this.x - 3, this.y + 2);
+        ctx.lineTo(this.x + 3, this.y + 2);
+        ctx.closePath();
+        ctx.fill();
 
         // Draw tiny health indicator only if damaged
         if (this.health < this.maxHealth) {
             const healthPercent = this.health / this.maxHealth;
-            const color = healthPercent > 0.5 ? CONFIG.COLORS.HEALTH_BAR : '#ffaa00';
-            renderer.drawTextCentered('.', this.x, this.y - 6, color, 6);
+            ctx.fillStyle = healthPercent > 0.5 ? CONFIG.COLORS.HEALTH_BAR : '#ffaa00';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y - 6, 2, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
 

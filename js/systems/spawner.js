@@ -123,14 +123,36 @@ export class SpawnerSystem {
             selectedLanes.push(lane);
         }
 
-        // Create walls in selected lanes
+        // Create walls in selected lanes with type variety
         selectedLanes.forEach(lane => {
             const x = Wall.getLaneX(lane);
-            const wall = new Wall(x, -40, lane);
+            const wallType = this.getRandomWallType(difficulty);
+            const wall = new Wall(x, -40, lane, wallType);
             walls.push(wall);
         });
 
         this.lastWallLanes = selectedLanes;
+    }
+
+    // Get a random wall type based on difficulty
+    getRandomWallType(difficulty) {
+        const roll = Math.random();
+
+        // Higher difficulty = more special wall types
+        // Base distribution:
+        // - 50% SOLID (always dangerous)
+        // - 15% DESTRUCTIBLE (can shoot through)
+        // - 12% BOOST (speed boost, safe)
+        // - 10% PUSHABLE (can push away)
+        // - 8% PLAYER_PASS (player bullets pass)
+        // - 5% ENEMY_PASS (enemy bullets pass - very dangerous!)
+
+        if (roll < 0.50) return 'SOLID';
+        if (roll < 0.65) return 'DESTRUCTIBLE';
+        if (roll < 0.77) return 'BOOST';
+        if (roll < 0.87) return 'PUSHABLE';
+        if (roll < 0.95) return 'PLAYER_PASS';
+        return 'ENEMY_PASS';
     }
 
     spawnEnemyWave(enemies, difficulty, allyCount = 0) {

@@ -100,20 +100,20 @@ export class LevelSelectUI {
         ctx.fillText('CUSTOM LEVELS', CONFIG.GAME_WIDTH / 2, 40);
 
         // Back button
-        ctx.fillStyle = '#666666';
+        ctx.fillStyle = '#aaaaaa';
         ctx.font = `bold 14px ${CONFIG.FONT_FAMILY}`;
         ctx.textAlign = 'left';
         ctx.fillText('< BACK', 15, 40);
 
         // Subtitle
-        ctx.fillStyle = '#888888';
+        ctx.fillStyle = '#aaaaaa';
         ctx.font = `12px ${CONFIG.FONT_FAMILY}`;
         ctx.textAlign = 'center';
         ctx.fillText('Select a level to play', CONFIG.GAME_WIDTH / 2, 60);
 
         if (this.levels.length === 0) {
             // No levels message
-            ctx.fillStyle = '#666666';
+            ctx.fillStyle = '#999999';
             ctx.font = `14px ${CONFIG.FONT_FAMILY}`;
             ctx.fillText('No custom levels yet!', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 20);
             ctx.fillText('Create one in the Map Editor', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 10);
@@ -149,7 +149,7 @@ export class LevelSelectUI {
                 ctx.fillText(level.name, 25, y + 22);
 
                 // Wave count
-                ctx.fillStyle = '#888888';
+                ctx.fillStyle = '#aaaaaa';
                 ctx.font = `11px ${CONFIG.FONT_FAMILY}`;
                 ctx.fillText(`${level.waves} wave${level.waves !== 1 ? 's' : ''}`, 25, y + 40);
 
@@ -165,14 +165,14 @@ export class LevelSelectUI {
 
             // Scroll indicators
             if (this.scrollOffset > 0) {
-                ctx.fillStyle = '#888888';
+                ctx.fillStyle = '#aaaaaa';
                 ctx.font = `12px ${CONFIG.FONT_FAMILY}`;
                 ctx.textAlign = 'center';
                 ctx.fillText('^ More above ^', CONFIG.GAME_WIDTH / 2, headerHeight - 5);
             }
 
             if (this.scrollOffset + this.maxVisible < this.levels.length) {
-                ctx.fillStyle = '#888888';
+                ctx.fillStyle = '#aaaaaa';
                 ctx.font = `12px ${CONFIG.FONT_FAMILY}`;
                 ctx.textAlign = 'center';
                 const bottomY = headerHeight + this.maxVisible * itemHeight + 10;
@@ -181,7 +181,7 @@ export class LevelSelectUI {
         }
 
         // Instructions at bottom
-        ctx.fillStyle = '#555555';
+        ctx.fillStyle = '#888888';
         ctx.font = `10px ${CONFIG.FONT_FAMILY}`;
         ctx.textAlign = 'center';
         ctx.fillText('Tap a level to play it', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT - 30);

@@ -378,7 +378,7 @@ export class ModeSelectUI {
             // Mode icon with retro box
             const iconX = btnX + 28;
             const iconY = btnY + btnHeight / 2;
-            ctx.fillStyle = isHovered ? modeColor : '#666666';
+            ctx.fillStyle = isHovered ? modeColor : '#999999';
             ctx.font = `bold 18px ${fontFamily}`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -391,8 +391,8 @@ export class ModeSelectUI {
             ctx.textBaseline = 'middle';
             ctx.fillText(mode.name.toUpperCase(), btnX + 55, btnY + 16);
 
-            // Description
-            ctx.fillStyle = isHovered ? '#aaaaaa' : '#666666';
+            // Description - improved readability
+            ctx.fillStyle = isHovered ? '#cccccc' : '#999999';
             ctx.font = `10px ${fontFamily}`;
             ctx.fillText(mode.description, btnX + 55, btnY + 32);
 

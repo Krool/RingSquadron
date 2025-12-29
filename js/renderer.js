@@ -282,14 +282,14 @@ export class Renderer {
         this.drawAnimatedTitle(centerX, 55, animTime);
 
         // Subtitle with pulse
-        const subtitleAlpha = 0.6 + Math.sin(animTime * 2) * 0.2;
+        const subtitleAlpha = 0.7 + Math.sin(animTime * 2) * 0.2;
         this.ctx.globalAlpha = subtitleAlpha;
-        this.drawTextFullyCentered('ARCADE SHOOTER', centerX, 90, '#888888', 10);
+        this.drawTextFullyCentered('ARCADE SHOOTER', centerX, 90, '#aaaaaa', 10);
         this.ctx.globalAlpha = 1;
 
         // Brief instructions
-        this.ctx.globalAlpha = 0.6;
-        this.drawTextFullyCentered('Drag to move  •  Collect rings  •  Destroy enemies', centerX, 115, '#666666', 9);
+        this.ctx.globalAlpha = 0.8;
+        this.drawTextFullyCentered('Drag to move  •  Collect rings  •  Destroy enemies', centerX, 115, '#999999', 9);
         this.ctx.globalAlpha = 1;
 
         // Decorative line
@@ -331,28 +331,28 @@ export class Renderer {
             const startX = centerX - statSpacing;
 
             // High score
-            this.drawTextFullyCentered('HIGH SCORE', startX, statsY, '#888888', 8);
+            this.drawTextFullyCentered('HIGH SCORE', startX, statsY, '#aaaaaa', 8);
             this.drawTextFullyCentered(`${(stats.highScore || 0).toLocaleString()}`, startX, statsY + 14, '#ffdd00', 12);
 
             // Total kills
-            this.drawTextFullyCentered('KILLS', centerX, statsY, '#888888', 8);
+            this.drawTextFullyCentered('KILLS', centerX, statsY, '#aaaaaa', 8);
             this.drawTextFullyCentered(`${(stats.totalKills || 0).toLocaleString()}`, centerX, statsY + 14, '#00ff88', 12);
 
             // Games played
-            this.drawTextFullyCentered('GAMES', startX + statSpacing * 2, statsY, '#888888', 8);
+            this.drawTextFullyCentered('GAMES', startX + statSpacing * 2, statsY, '#aaaaaa', 8);
             this.drawTextFullyCentered(`${stats.gamesPlayed || 0}`, startX + statSpacing * 2, statsY + 14, '#44aaff', 12);
 
             this.ctx.globalAlpha = 1;
         }
 
         // Footer hint
-        this.ctx.globalAlpha = 0.5;
-        this.drawTextFullyCentered('Tap a mode to start', centerX, this.canvas.height - 40, '#666666', 10);
+        this.ctx.globalAlpha = 0.7;
+        this.drawTextFullyCentered('Tap a mode to start', centerX, this.canvas.height - 40, '#999999', 10);
         this.ctx.globalAlpha = 1;
 
         // Version number
-        this.ctx.globalAlpha = 0.4;
-        this.drawText('v2.0', 10, this.canvas.height - 20, '#666666', 8);
+        this.ctx.globalAlpha = 0.6;
+        this.drawText('v2.0', 10, this.canvas.height - 20, '#888888', 8);
         this.ctx.globalAlpha = 1;
     }
 

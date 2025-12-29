@@ -1293,14 +1293,29 @@ class Game {
             }
         );
 
-        // Wall collisions (Wall Mode only)
-        if (this.gameMode.getRules().hasWalls && this.walls.length > 0) {
-            // Bullets blocked by walls (both player and enemy)
-            CollisionSystem.checkBulletWallCollisions(this.playerBullets, this.walls);
-            CollisionSystem.checkBulletWallCollisions(this.enemyBullets, this.walls);
+        // Wall collisions (Wall Mode or custom levels with walls)
+        if ((this.gameMode.getRules().hasWalls || this.walls.length > 0) && this.walls.length > 0) {
+            // Player bullets vs walls (with effects for destructible/pushable)
+            CollisionSystem.checkPlayerBulletWallCollisions(this.playerBullets, this.walls, (bullet, wall, destroyed) => {
+                this.particles.spark(bullet.x, bullet.y, wall.typeData.stripeColor);
+                if (destroyed) {
+                    this.particles.explosion(wall.x, wall.y, 0.8);
+                    this.audio.playExplosion();
+                    this.floatingText.add(wall.x, wall.y, 'DESTROYED', '#ffff00', 12);
+                }
+            });
 
-            // Player instant death on wall collision
-            if (CollisionSystem.checkPlayerWallCollision(this.player, this.walls)) {
+            // Enemy bullets vs walls
+            CollisionSystem.checkEnemyBulletWallCollisions(this.enemyBullets, this.walls, (bullet, wall) => {
+                this.particles.spark(bullet.x, bullet.y, '#ff6666');
+            });
+
+            // Wall-to-wall collisions (for pushable walls hitting solid walls)
+            CollisionSystem.checkWallWallCollisions(this.walls);
+
+            // Player vs wall collision (death or boost)
+            const wallResult = CollisionSystem.checkPlayerWallCollision(this.player, this.walls);
+            if (wallResult.hit) {
                 if (!this.gameMode.isInvincible()) {
                     this.player.health = 0;
                     this.player.active = false;
@@ -1310,11 +1325,16 @@ class Game {
                     this.screenFx.flash('#ff0000', 0.4, 0.05);
                     this.haptics.heavy();
                 }
+            } else if (wallResult.boost && wallResult.wall) {
+                // Apply boost effect
+                const boostAmount = wallResult.wall.getBoostAmount();
+                this.player.applyBoost(boostAmount);
+                this.particles.spark(this.player.x, this.player.y, '#44ff44');
             }
 
-            // Allies destroyed by walls
+            // Allies destroyed by blocking walls
             let alliesLost = false;
-            CollisionSystem.checkAllyWallCollisions(this.allies, this.walls, (ally) => {
+            CollisionSystem.checkAllyWallCollisions(this.allies, this.walls, (ally, wall) => {
                 ally.active = false;
                 this.particles.explosion(ally.x, ally.y, 0.4);
                 alliesLost = true;

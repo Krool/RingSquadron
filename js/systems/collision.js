@@ -158,29 +158,83 @@ export class CollisionSystem {
         }
     }
 
-    // Check bullets vs walls (bullets get destroyed, walls are indestructible)
-    static checkBulletWallCollisions(bullets, walls) {
+    // Check player bullets vs walls
+    // Returns array of {bullet, wall} pairs that hit (for effects)
+    static checkPlayerBulletWallCollisions(bullets, walls, onHit) {
         for (let i = bullets.length - 1; i >= 0; i--) {
             const bullet = bullets[i];
-            if (!bullet.active) continue;
+            if (!bullet.active || !bullet.isPlayerBullet) continue;
 
             const bulletBounds = bullet.getBounds();
 
             for (const wall of walls) {
                 if (!wall.active) continue;
 
+                // Check if this wall type blocks player bullets
+                if (!wall.blocksPlayerBullets()) continue;
+
                 const wallBounds = wall.getBounds();
                 if (this.checkCollision(bulletBounds, wallBounds)) {
-                    bullet.active = false; // Wall blocks ALL bullets
+                    bullet.active = false;
+
+                    // Handle destructible walls
+                    if (wall.typeData.destructible) {
+                        const destroyed = wall.takeDamage(bullet.damage || 1);
+                        if (onHit) onHit(bullet, wall, destroyed);
+                    }
+                    // Handle pushable walls
+                    else if (wall.typeData.pushable) {
+                        wall.push(2);
+                        if (onHit) onHit(bullet, wall, false);
+                    }
+                    // Normal wall hit
+                    else if (onHit) {
+                        onHit(bullet, wall, false);
+                    }
                     break;
                 }
             }
         }
     }
 
-    // Check player collision with walls (instant death)
+    // Check enemy bullets vs walls
+    static checkEnemyBulletWallCollisions(bullets, walls, onHit) {
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            const bullet = bullets[i];
+            if (!bullet.active || bullet.isPlayerBullet) continue;
+
+            const bulletBounds = bullet.getBounds();
+
+            for (const wall of walls) {
+                if (!wall.active) continue;
+
+                // Check if this wall type blocks enemy bullets
+                if (!wall.blocksEnemyBullets()) continue;
+
+                const wallBounds = wall.getBounds();
+                if (this.checkCollision(bulletBounds, wallBounds)) {
+                    bullet.active = false;
+                    if (onHit) onHit(bullet, wall);
+                    break;
+                }
+            }
+        }
+    }
+
+    // Legacy method for backwards compatibility
+    static checkBulletWallCollisions(bullets, walls) {
+        // Split into player and enemy bullets
+        const playerBullets = bullets.filter(b => b.isPlayerBullet);
+        const enemyBullets = bullets.filter(b => !b.isPlayerBullet);
+
+        this.checkPlayerBulletWallCollisions(playerBullets, walls);
+        this.checkEnemyBulletWallCollisions(enemyBullets, walls);
+    }
+
+    // Check player collision with walls
+    // Returns { hit: boolean, wall: Wall|null, boost: boolean }
     static checkPlayerWallCollision(player, walls) {
-        if (!player.active) return false;
+        if (!player.active) return { hit: false, wall: null, boost: false };
 
         const playerBounds = player.getBounds();
 
@@ -189,13 +243,20 @@ export class CollisionSystem {
 
             const wallBounds = wall.getBounds();
             if (this.checkCollision(playerBounds, wallBounds)) {
-                return true; // Player hit wall
+                // Check if it's a boost wall
+                if (wall.isBoost()) {
+                    return { hit: false, wall: wall, boost: true };
+                }
+                // Check if this wall blocks player
+                if (wall.blocksPlayer()) {
+                    return { hit: true, wall: wall, boost: false };
+                }
             }
         }
-        return false;
+        return { hit: false, wall: null, boost: false };
     }
 
-    // Check ally collision with walls (allies destroyed)
+    // Check ally collision with walls (allies destroyed by blocking walls)
     static checkAllyWallCollisions(allies, walls, onHit) {
         for (const ally of allies) {
             if (!ally.active) continue;
@@ -205,10 +266,26 @@ export class CollisionSystem {
             for (const wall of walls) {
                 if (!wall.active) continue;
 
+                // Only solid-type walls destroy allies
+                if (!wall.blocksPlayer()) continue;
+
                 const wallBounds = wall.getBounds();
                 if (this.checkCollision(allyBounds, wallBounds)) {
-                    onHit(ally);
+                    onHit(ally, wall);
                     break;
+                }
+            }
+        }
+    }
+
+    // Check pushable walls colliding with other walls
+    static checkWallWallCollisions(walls) {
+        for (const wall of walls) {
+            if (!wall.active || !wall.typeData.pushable) continue;
+
+            for (const otherWall of walls) {
+                if (wall.checkWallCollision(otherWall)) {
+                    // Collision handled inside checkWallCollision
                 }
             }
         }

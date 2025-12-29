@@ -227,11 +227,11 @@ export class ShopUI {
             ctx.fillStyle = upgrade.level >= upgrade.maxLevel ? '#00ff00' : '#00aa88';
             ctx.fillRect(barX, barY, (upgrade.level / upgrade.maxLevel) * barWidth, barHeight);
 
-            ctx.strokeStyle = '#666666';
+            ctx.strokeStyle = '#888888';
             ctx.strokeRect(barX, barY, barWidth, barHeight);
 
             // Level text
-            ctx.fillStyle = '#888888';
+            ctx.fillStyle = '#aaaaaa';
             ctx.font = `10px ${CONFIG.FONT_FAMILY}`;
             ctx.fillText(`${upgrade.level}/${upgrade.maxLevel}`, barX + barWidth + 10, barY + 7);
 
@@ -249,7 +249,7 @@ export class ShopUI {
 
             // Description
             ctx.textAlign = 'left';
-            ctx.fillStyle = '#666666';
+            ctx.fillStyle = '#999999';
             ctx.font = `10px ${CONFIG.FONT_FAMILY}`;
             ctx.fillText(upgrade.description, 40, y + 25);
 
@@ -258,7 +258,7 @@ export class ShopUI {
 
         // Instructions
         y = canvasHeight - 60;
-        ctx.fillStyle = '#888888';
+        ctx.fillStyle = '#aaaaaa';
         ctx.font = `12px ${CONFIG.FONT_FAMILY}`;
         ctx.textAlign = 'center';
         ctx.fillText('TAP to purchase | SWIPE to navigate', centerX, y);
