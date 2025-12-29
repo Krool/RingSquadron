@@ -13,10 +13,15 @@ export class LevelSelectUI {
     constructor() {
         this.visible = false;
         this.levels = [];
+        this.globalLevels = {};  // Cached global levels
+        this.globalLevelsLoaded = false;
         this.selectedIndex = 0;
         this.scrollOffset = 0;
         this.maxVisible = 8;
         this.animTime = 0;
+
+        // Start loading global levels
+        this.loadGlobalLevels();
     }
 
     show() {
@@ -34,17 +39,66 @@ export class LevelSelectUI {
         this.animTime += deltaTime / 1000;
     }
 
-    // Refresh the list of saved levels
+    // Load global levels from repo
+    async loadGlobalLevels() {
+        try {
+            const response = await fetch('./global-levels.json');
+            if (response.ok) {
+                const data = await response.json();
+                this.globalLevels = data.levels || {};
+                this.globalLevelsLoaded = true;
+                // Refresh if currently visible
+                if (this.visible) {
+                    this.refresh();
+                }
+            }
+        } catch (e) {
+            console.log('Could not load global levels:', e);
+            this.globalLevelsLoaded = true;  // Mark as loaded even on error
+        }
+    }
+
+    // Refresh the list of saved levels (local + global)
     refresh() {
+        // Get local levels
         const savedLevels = EditorSystem.getSavedLevels();
-        this.levels = Object.entries(savedLevels).map(([name, data]) => ({
+        const localLevels = Object.entries(savedLevels).map(([name, data]) => ({
             name,
             waves: data.waves ? data.waves.length : 0,
-            createdAt: data.createdAt || 0
+            createdAt: data.createdAt || 0,
+            isGlobal: false
         }));
 
-        // Sort by creation date (newest first)
-        this.levels.sort((a, b) => b.createdAt - a.createdAt);
+        // Get global levels (mark them as global)
+        const globalLevels = Object.entries(this.globalLevels).map(([name, data]) => ({
+            name,
+            waves: data.waves ? data.waves.length : 0,
+            createdAt: data.createdAt || 0,
+            isGlobal: true
+        }));
+
+        // Combine: global first, then local (avoid duplicates)
+        const localNames = new Set(localLevels.map(l => l.name));
+        const uniqueGlobal = globalLevels.filter(g => !localNames.has(g.name));
+
+        this.levels = [...uniqueGlobal, ...localLevels];
+
+        // Sort: global first, then by creation date
+        this.levels.sort((a, b) => {
+            if (a.isGlobal !== b.isGlobal) return a.isGlobal ? -1 : 1;
+            return b.createdAt - a.createdAt;
+        });
+    }
+
+    // Get level data by name (checks global first, then local)
+    getLevelData(name) {
+        // Check global levels first
+        if (this.globalLevels[name]) {
+            return this.globalLevels[name];
+        }
+        // Fall back to local
+        const local = EditorSystem.getSavedLevels();
+        return local[name] || null;
     }
 
     // Get currently selected level name
@@ -142,16 +196,24 @@ export class LevelSelectUI {
                     ctx.strokeRect(10, y, CONFIG.GAME_WIDTH - 20, itemHeight - 5);
                 }
 
+                // Global indicator
+                if (level.isGlobal) {
+                    ctx.fillStyle = '#ffaa00';
+                    ctx.font = `bold 9px ${CONFIG.FONT_FAMILY}`;
+                    ctx.textAlign = 'left';
+                    ctx.fillText('COMMUNITY', 25, y + 12);
+                }
+
                 // Level name
                 ctx.fillStyle = isSelected ? '#44aaff' : '#ffffff';
                 ctx.font = `bold 14px ${CONFIG.FONT_FAMILY}`;
                 ctx.textAlign = 'left';
-                ctx.fillText(level.name, 25, y + 22);
+                ctx.fillText(level.name, 25, y + (level.isGlobal ? 28 : 22));
 
                 // Wave count
                 ctx.fillStyle = '#aaaaaa';
                 ctx.font = `11px ${CONFIG.FONT_FAMILY}`;
-                ctx.fillText(`${level.waves} wave${level.waves !== 1 ? 's' : ''}`, 25, y + 40);
+                ctx.fillText(`${level.waves} wave${level.waves !== 1 ? 's' : ''}`, 25, y + (level.isGlobal ? 44 : 40));
 
                 // Play indicator
                 if (isSelected) {

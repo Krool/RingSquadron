@@ -677,7 +677,9 @@ class Game {
     }
 
     startCustomLevel(levelName) {
-        if (this.customLevel.loadLevel(levelName)) {
+        // Try to get level data from levelSelectUI (includes global levels)
+        const levelData = this.levelSelectUI.getLevelData(levelName);
+        if (levelData && this.customLevel.loadLevelData(levelName, levelData)) {
             this.levelSelectUI.hide();
             this.reset();
             this.state = 'customPlaying';

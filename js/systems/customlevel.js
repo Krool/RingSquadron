@@ -35,16 +35,24 @@ export class CustomLevelManager {
     loadLevel(name) {
         const levels = EditorSystem.getSavedLevels();
         if (levels[name]) {
-            this.currentLevel = levels[name];
-            this.currentWaveIndex = 0;
-            this.waveStartTime = 0;
-            this.waveSpawned = false;
-            this.levelComplete = false;
-            this.levelFailed = false;
-            this.reset();
-            return true;
+            return this.loadLevelData(name, levels[name]);
         }
         return false;
+    }
+
+    // Load level from provided data (for global levels)
+    loadLevelData(name, levelData) {
+        if (!levelData || !levelData.waves) return false;
+
+        this.currentLevel = levelData;
+        this.currentLevel.name = name;
+        this.currentWaveIndex = 0;
+        this.waveStartTime = 0;
+        this.waveSpawned = false;
+        this.levelComplete = false;
+        this.levelFailed = false;
+        this.reset();
+        return true;
     }
 
     // Reset tracking for new wave

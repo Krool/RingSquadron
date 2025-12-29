@@ -294,11 +294,29 @@ export class EditorSystem {
     }
 
     // Save level to LocalStorage
+    // If name contains "(G)", also show JSON for adding to global-levels.json
     saveLevel() {
         const levels = EditorSystem.getSavedLevels();
-        levels[this.levelName] = this.serialize();
+        const levelData = this.serialize();
+        levels[this.levelName] = levelData;
         localStorage.setItem('ringSquadron_customLevels', JSON.stringify(levels));
         this.isDirty = false;
+
+        // If name contains "(G)", show JSON for global sharing
+        if (this.levelName.includes('(G)')) {
+            const jsonStr = JSON.stringify(levelData, null, 2);
+            // Copy to clipboard if available
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(`"${this.levelName}": ${jsonStr}`).then(() => {
+                    alert(`Global level saved!\n\nJSON copied to clipboard.\nAdd it to global-levels.json in the repo.`);
+                }).catch(() => {
+                    prompt('Copy this JSON to add to global-levels.json:', `"${this.levelName}": ${jsonStr}`);
+                });
+            } else {
+                prompt('Copy this JSON to add to global-levels.json:', `"${this.levelName}": ${jsonStr}`);
+            }
+        }
+
         return true;
     }
 
