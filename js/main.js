@@ -42,6 +42,7 @@ import { EditorSystem } from './systems/editor.js';
 import { EditorUI } from './systems/editorui.js';
 import { CustomLevelManager } from './systems/customlevel.js';
 import { LevelSelectUI } from './systems/levelselect.js';
+import { GameOverUI } from './systems/gameoverui.js';
 
 class Game {
     constructor() {
@@ -77,6 +78,7 @@ class Game {
         this.editorUI = new EditorUI(this.editor);
         this.customLevel = new CustomLevelManager();
         this.levelSelectUI = new LevelSelectUI();
+        this.gameOverUI = new GameOverUI();
 
         // Game state
         this.state = 'menu'; // menu, modeSelect, playing, paused, shop, gameover
@@ -85,6 +87,7 @@ class Game {
         this.totalGold = 0;
         this.kills = 0;
         this.ringsCollected = 0;
+        this.alliesRecruited = 0;
         this.currentWave = 0;
         this.waveAnnouncement = null;
         this.waveAnnouncementTimer = 0;
@@ -185,6 +188,7 @@ class Game {
         this.score = 0;
         this.kills = 0;
         this.ringsCollected = 0;
+        this.alliesRecruited = 0;
         this.currentWave = 0;
         this.waveAnnouncement = null;
         this.playTime = 0;
@@ -402,18 +406,20 @@ class Game {
     }
 
     updateGameOver(deltaTime) {
-        // Wait for delay before allowing restart
+        // Wait for delay before allowing interaction
         if (this.gameOverTimer > 0) {
             this.gameOverTimer -= deltaTime;
             this.input.checkTap(); // Consume any taps during delay
             return;
         }
 
-        if (this.input.checkTap()) {
-            this.screenFx.flash('#ffffff', 0.3);
-            this.haptics.light();
+        // Show the game over UI if not visible
+        if (!this.gameOverUI.visible) {
+            // Determine if this is a victory
+            const isVictory = this.customLevel.isComplete() ||
+                (this.gameMode.getRules().isCampaign && this.bossDefeated);
 
-            // Save high score
+            // Save high score first
             if (this.gameMode.canSaveHighScore()) {
                 const rank = this.save.saveHighScore({
                     score: this.score,
@@ -422,7 +428,6 @@ class Game {
                     gameMode: this.gameMode.currentMode
                 });
 
-                // Also save level-specific score
                 const levelId = this.gameMode.currentMode === 'campaign'
                     ? (this.campaign ? this.campaign.currentLevelIndex : 0)
                     : 'default';
@@ -450,7 +455,57 @@ class Game {
             });
 
             this.saveProgress();
-            this.start();
+
+            // Show the UI with stats
+            this.gameOverUI.show(isVictory, {
+                score: this.score,
+                wave: this.currentWave,
+                kills: this.kills,
+                alliesRecruited: this.alliesRecruited,
+                maxCombo: this.combo.maxCombo,
+                playTime: this.playTime,
+                goldEarned: this.totalGold,
+                isNewHighScore: this.isNewLevelHighScore
+            });
+        }
+
+        // Update UI animations
+        this.gameOverUI.update(deltaTime);
+
+        // Handle hover/press states
+        const target = this.input.getTarget();
+        const hover = this.input.getHoverPosition();
+
+        if (hover) {
+            this.gameOverUI.updateHover(hover.x, hover.y);
+        } else if (target) {
+            this.gameOverUI.updateHover(target.x, target.y);
+        }
+
+        if (target && this.input.isPressed()) {
+            this.gameOverUI.onPressStart(target.x, target.y);
+        } else {
+            this.gameOverUI.onPressEnd();
+        }
+
+        // Handle tap
+        if (this.input.checkTap()) {
+            if (target) {
+                const action = this.gameOverUI.handleTap(target.x, target.y);
+
+                if (action === 'restart') {
+                    this.screenFx.flash('#ffffff', 0.3);
+                    this.haptics.light();
+                    this.gameOverUI.hide();
+                    this.start();
+                } else if (action === 'menu') {
+                    this.screenFx.flash('#ffffff', 0.3);
+                    this.haptics.light();
+                    this.gameOverUI.hide();
+                    this.state = 'menu';
+                    this.music.stop();
+                }
+            }
         }
     }
 
@@ -1026,6 +1081,7 @@ class Game {
                             const ally = new Ally(this.allies.length);
                             ally.setSpawnPosition(ring.x, ring.y);
                             this.allies.push(ally);
+                            this.alliesRecruited++;
                         }
                         if (toAdd > 0) {
                             this.particles.allyJoin(ring.x, ring.y);
@@ -1082,6 +1138,7 @@ class Game {
                         const ally = new Ally(this.allies.length);
                         ally.setSpawnPosition(ring.x, ring.y);
                         this.allies.push(ally);
+                        this.alliesRecruited++;
                         this.particles.allyJoin(ring.x, ring.y);
                     }
                     if (value > 0) {
@@ -1643,7 +1700,7 @@ class Game {
 
         // Draw game over overlay
         if (this.state === 'gameover') {
-            this.renderer.drawGameOver(this.score, this.gold, this.isNewLevelHighScore, this.currentWave);
+            this.gameOverUI.draw(ctx);
         }
     }
 
