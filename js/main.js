@@ -793,9 +793,9 @@ class Game {
             ring.update(boostedDt);
         }
 
-        // Update walls (using boostedDt for scroll speed)
+        // Update walls (boostedDt for movement, dt for animations)
         for (const wall of this.walls) {
-            wall.update(boostedDt);
+            wall.update(boostedDt, dt);
         }
 
         // Update power-ups (using boostedDt for scroll speed)
@@ -1065,9 +1065,9 @@ class Game {
             ring.update(boostedDt);
         }
 
-        // Update walls (using boostedDt for scroll speed)
+        // Update walls (boostedDt for movement, dt for animations)
         for (const wall of this.walls) {
-            wall.update(boostedDt);
+            wall.update(boostedDt, dt);
         }
 
         this.handleCollisions();
@@ -1427,8 +1427,10 @@ class Game {
                     this.screenFx.flash('#ff0000', 0.4, 0.05);
                     this.haptics.heavy();
                 }
-            } else if (wallResult.boost && wallResult.wall) {
-                // Apply boost effect - stacks!
+            } else if (wallResult.boost && wallResult.wall && !wallResult.wall.boostCollected) {
+                // Apply boost effect - stacks! Only trigger once per wall.
+                wallResult.wall.boostCollected = true;
+
                 const boostAmount = wallResult.wall.getBoostAmount();
                 this.player.applyBoost(boostAmount);
                 this.particles.spark(this.player.x, this.player.y, '#44ff44');

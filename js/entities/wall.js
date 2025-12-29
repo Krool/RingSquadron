@@ -132,12 +132,17 @@ export class Wall {
         this.pulseTimer = 0;
         this.hitFlash = 0;
         this.warningShown = false;
+
+        // Track if boost has been collected (prevent multiple triggers)
+        this.boostCollected = false;
     }
 
-    update(deltaTime) {
+    update(deltaTime, realDeltaTime = null) {
         if (!this.active) return;
 
         const dt = deltaTime / 16;
+        // Use real time for animations (not affected by boost)
+        const realDt = (realDeltaTime !== null ? realDeltaTime : deltaTime) / 16;
 
         // Pushable walls have special velocity handling
         if (this.typeData.pushable && this.pushVelocity !== 0) {
@@ -160,8 +165,8 @@ export class Wall {
             Math.max(0, this.speed - this.pushVelocity * 0.5) : this.speed;
         this.y += effectiveSpeed * dt;
 
-        // Pulse animation
-        this.pulseTimer += 0.08 * dt;
+        // Pulse animation uses real time (not affected by boost)
+        this.pulseTimer += 0.08 * realDt;
 
         // Hit flash decay
         if (this.hitFlash > 0) {
