@@ -132,6 +132,14 @@ class Game {
         this.canvas.height = CONFIG.GAME_HEIGHT;
         this.resizeCanvas();
         window.addEventListener('resize', () => this.resizeCanvas());
+
+        // Wheel event for editor scrolling
+        this.canvas.addEventListener('wheel', (e) => {
+            if (this.state === 'editor') {
+                e.preventDefault();
+                this.editorUI.handleWheel(e.deltaY);
+            }
+        }, { passive: false });
     }
 
     resizeCanvas() {
@@ -516,14 +524,31 @@ class Game {
     updateEditor(deltaTime) {
         this.editorUI.update(deltaTime);
 
+        const target = this.input.getTarget();
+
+        // Handle drag for panning
+        if (this.input.isPressed() && target) {
+            if (!this.editorUI.isDragging) {
+                this.editorUI.handleDragStart(target.x, target.y);
+            } else {
+                this.editorUI.handleDragMove(target.x, target.y);
+            }
+        } else {
+            if (this.editorUI.isDragging) {
+                this.editorUI.handleDragEnd();
+            }
+        }
+
+        // Handle tap (place element or button click)
         if (this.input.checkTap()) {
-            const target = this.input.getTarget();
             if (target) {
                 const result = this.editorUI.handleTap(target.x, target.y);
                 if (result === 'exit') {
                     this.exitEditor();
                 } else if (result === 'save') {
                     this.audio.playPowerUp();
+                } else if (result === 'placed') {
+                    this.haptics.light();
                 }
             }
         }

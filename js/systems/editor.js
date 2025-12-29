@@ -28,6 +28,10 @@ export class EditorSystem {
         this.gridSize = 40;
         this.laneWidth = CONFIG.GAME_WIDTH / 3;
 
+        // Scroll/pan settings
+        this.scrollOffset = 0;  // How far scrolled down (positive = looking further up the wave)
+        this.maxWaveHeight = 2000;  // Maximum spawn height per wave
+
         // Available enemy types for the editor
         this.enemyTypes = ['BASIC', 'FAST', 'TANK', 'SNIPER', 'BOMBER', 'SWARM', 'SHIELD'];
     }
@@ -36,8 +40,8 @@ export class EditorSystem {
         return {
             delay: 2000,  // Delay before this wave starts (ms)
             rings: [],    // { x: 0-1 normalized, y: spawn Y, value: number, path: string }
-            enemies: [],  // { x: 0-1 normalized, type: string, delay: ms }
-            walls: [],    // { lane: 0-2 }
+            enemies: [],  // { x: 0-1 normalized, y: spawn Y, type: string }
+            walls: [],    // { lane: 0-2, y: spawn Y }
             gates: []     // { x: 0-1 normalized, y: spawn Y, type: 'multiply' | 'divide' }
         };
     }
@@ -61,24 +65,40 @@ export class EditorSystem {
     nextWave() {
         if (this.currentWaveIndex < this.waves.length - 1) {
             this.currentWaveIndex++;
+            this.scrollOffset = 0;  // Reset scroll on wave change
         }
     }
 
     prevWave() {
         if (this.currentWaveIndex > 0) {
             this.currentWaveIndex--;
+            this.scrollOffset = 0;  // Reset scroll on wave change
         }
     }
 
+    // Scroll the view (positive = scroll down to see higher Y values)
+    scroll(delta) {
+        this.scrollOffset = Math.max(0, Math.min(
+            this.maxWaveHeight - 400,  // Leave some visible area
+            this.scrollOffset + delta
+        ));
+    }
+
     // Place an element at the given screen coordinates
-    placeElement(x, y) {
+    placeElement(x, y, editAreaWidth) {
         const wave = this.getCurrentWave();
 
-        // Normalize X to 0-1 range
-        const normalizedX = x / CONFIG.GAME_WIDTH;
+        // Normalize X to 0-1 range (relative to edit area, not full width)
+        const normalizedX = Math.min(1, Math.max(0, x / editAreaWidth));
+
+        // Convert screen Y to world Y (accounting for scroll)
+        const worldY = y + this.scrollOffset;
 
         // Snap Y to grid
-        const snappedY = Math.round(y / this.gridSize) * this.gridSize;
+        const snappedY = Math.round(worldY / this.gridSize) * this.gridSize;
+
+        // Clamp to valid range
+        if (snappedY < 0 || snappedY > this.maxWaveHeight) return;
 
         switch (this.selectedTool) {
             case 'ring':
@@ -100,19 +120,27 @@ export class EditorSystem {
                 break;
 
             case 'enemy':
-                wave.enemies.push({
-                    x: normalizedX,
-                    type: this.selectedEnemyType,
-                    delay: 0
-                });
+                // Check for existing enemy at this position
+                const existingEnemy = wave.enemies.findIndex(e =>
+                    Math.abs(e.x - normalizedX) < 0.1 && Math.abs(e.y - snappedY) < 30
+                );
+                if (existingEnemy < 0) {
+                    wave.enemies.push({
+                        x: normalizedX,
+                        y: snappedY,
+                        type: this.selectedEnemyType
+                    });
+                }
                 break;
 
             case 'wall':
-                const lane = Math.floor(x / this.laneWidth);
-                // Check if wall already exists in this lane
-                const existingWall = wave.walls.findIndex(w => w.lane === lane);
+                const lane = Math.floor(normalizedX * 3);
+                // Check if wall already exists at this lane AND Y position
+                const existingWall = wave.walls.findIndex(w =>
+                    w.lane === lane && Math.abs(w.y - snappedY) < 30
+                );
                 if (existingWall < 0) {
-                    wave.walls.push({ lane });
+                    wave.walls.push({ lane, y: snappedY });
                 }
                 break;
 
@@ -133,36 +161,39 @@ export class EditorSystem {
                 break;
 
             case 'erase':
-                this.eraseAt(x, y);
+                this.eraseAt(x, y, editAreaWidth);
                 break;
         }
     }
 
     // Erase element at position
-    eraseAt(x, y) {
+    eraseAt(x, y, editAreaWidth) {
         const wave = this.getCurrentWave();
-        const normalizedX = x / CONFIG.GAME_WIDTH;
+        const normalizedX = x / editAreaWidth;
+        const worldY = y + this.scrollOffset;
         const tolerance = 0.15;
         const yTolerance = 40;
 
         // Erase rings
         wave.rings = wave.rings.filter(r =>
-            Math.abs(r.x - normalizedX) > tolerance || Math.abs(r.y - y) > yTolerance
+            Math.abs(r.x - normalizedX) > tolerance || Math.abs(r.y - worldY) > yTolerance
         );
 
         // Erase gates
         wave.gates = wave.gates.filter(g =>
-            Math.abs(g.x - normalizedX) > tolerance || Math.abs(g.y - y) > yTolerance
+            Math.abs(g.x - normalizedX) > tolerance || Math.abs(g.y - worldY) > yTolerance
         );
 
-        // Erase enemies (by X position only since they spawn at top)
+        // Erase enemies
         wave.enemies = wave.enemies.filter(e =>
-            Math.abs(e.x - normalizedX) > tolerance
+            Math.abs(e.x - normalizedX) > tolerance || Math.abs(e.y - worldY) > yTolerance
         );
 
-        // Erase walls by lane
-        const lane = Math.floor(x / this.laneWidth);
-        wave.walls = wave.walls.filter(w => w.lane !== lane);
+        // Erase walls by lane AND Y position
+        const lane = Math.floor(normalizedX * 3);
+        wave.walls = wave.walls.filter(w =>
+            w.lane !== lane || Math.abs(w.y - worldY) > yTolerance
+        );
     }
 
     // Clear current wave

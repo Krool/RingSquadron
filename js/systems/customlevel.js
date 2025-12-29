@@ -100,11 +100,15 @@ export class CustomLevelManager {
     }
 
     // Spawn all entities for current wave
+    // Y positions in editor represent spawn order - higher Y = spawns later (further above screen)
     spawnWaveEntities(wave, rings, enemies, walls, currentTime) {
+        // Use edit area width for X normalization (matches editor)
+        const editAreaWidth = CONFIG.GAME_WIDTH - 75;  // Match sidebar width from editorui
+
         // Spawn rings
         if (wave.rings) {
             for (const ringDef of wave.rings) {
-                const x = ringDef.x * CONFIG.GAME_WIDTH;
+                const x = ringDef.x * editAreaWidth;
                 const ring = new Ring(x, -ringDef.y, ringDef.value);
 
                 if (ringDef.path && ringDef.path !== 'straight') {
@@ -119,7 +123,7 @@ export class CustomLevelManager {
         // Spawn gates (as rings with multiplier)
         if (wave.gates) {
             for (const gateDef of wave.gates) {
-                const x = gateDef.x * CONFIG.GAME_WIDTH;
+                const x = gateDef.x * editAreaWidth;
                 const ring = new Ring(x, -gateDef.y, 0);
                 ring.setMultiplierGate(gateDef.type);
                 rings.push(ring);
@@ -127,46 +131,37 @@ export class CustomLevelManager {
             }
         }
 
-        // Queue enemy spawns (with delays)
+        // Spawn enemies at their Y positions
         if (wave.enemies) {
             for (const enemyDef of wave.enemies) {
-                this.pendingSpawns.push({
-                    x: enemyDef.x * CONFIG.GAME_WIDTH,
-                    type: enemyDef.type,
-                    spawnAt: currentTime + (enemyDef.delay || 0)
-                });
+                const x = enemyDef.x * editAreaWidth;
+                const y = -(enemyDef.y || 50);  // Spawn above screen
+                const enemy = new Enemy(x, y, enemyDef.type);
+                enemies.push(enemy);
+                this.waveEnemies.push(enemy);
             }
         }
 
-        // Spawn walls
+        // Spawn walls at their Y positions
         if (wave.walls) {
             for (const wallDef of wave.walls) {
-                const laneWidth = CONFIG.GAME_WIDTH / 3;
+                const laneWidth = editAreaWidth / 3;
                 const x = laneWidth * wallDef.lane + laneWidth / 2;
-                const wall = new Wall(x, -40, wallDef.lane);
+                const y = -(wallDef.y || 40);  // Spawn above screen
+                const wall = new Wall(x, y, wallDef.lane);
                 walls.push(wall);
                 this.waveWalls.push(wall);
             }
         }
     }
 
-    // Process delayed enemy spawns
+    // Process delayed enemy spawns (legacy - now enemies spawn immediately at Y position)
     processPendingSpawns(currentTime, enemies) {
-        for (let i = this.pendingSpawns.length - 1; i >= 0; i--) {
-            const spawn = this.pendingSpawns[i];
-            if (currentTime >= spawn.spawnAt) {
-                const enemy = new Enemy(spawn.x, -50, spawn.type);
-                enemies.push(enemy);
-                this.waveEnemies.push(enemy);
-                this.pendingSpawns.splice(i, 1);
-            }
-        }
+        // No longer used - enemies spawn with Y position directly
     }
 
     // Check if current wave is complete
     isWaveComplete(allEnemies) {
-        // All pending spawns must be done
-        if (this.pendingSpawns.length > 0) return false;
 
         // All wave enemies must be dead
         const waveEnemiesAlive = this.waveEnemies.filter(e => e.active).length;

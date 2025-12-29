@@ -6,6 +6,7 @@
  * - Tool selection toolbar (bottom)
  * - Wave navigation sidebar (right)
  * - Preview of placed elements
+ * - Scroll/pan to navigate wave height
  *
  * @module systems/editorui
  */
@@ -16,9 +17,12 @@ export class EditorUI {
         this.editor = editor;
         this.visible = false;
 
-        // Layout dimensions
+        // Layout dimensions - narrower sidebar to not overlap lanes
         this.toolbarHeight = 70;
-        this.sidebarWidth = 90;
+        this.sidebarWidth = 75;
+
+        // Calculate edit area (excludes sidebar)
+        this.editAreaWidth = CONFIG.GAME_WIDTH - this.sidebarWidth;
 
         // Tool definitions
         this.tools = [
@@ -33,11 +37,18 @@ export class EditorUI {
         // Animation
         this.animTime = 0;
         this.saveFlash = 0;
+
+        // Drag state for panning
+        this.isDragging = false;
+        this.lastDragY = 0;
+        this.dragStartY = 0;
+        this.wasDragged = false;  // True if significant drag occurred
     }
 
     show() {
         this.visible = true;
         this.animTime = 0;
+        this.editor.scrollOffset = 0;
     }
 
     hide() {
@@ -51,9 +62,53 @@ export class EditorUI {
         }
     }
 
+    // Handle mouse wheel for scrolling
+    handleWheel(deltaY) {
+        if (!this.visible) return;
+        this.editor.scroll(deltaY * 0.5);
+    }
+
+    // Handle drag start
+    handleDragStart(x, y) {
+        if (!this.visible) return;
+        // Only start drag in edit area
+        if (x < this.editAreaWidth && y < CONFIG.GAME_HEIGHT - this.toolbarHeight) {
+            this.isDragging = true;
+            this.lastDragY = y;
+            this.dragStartY = y;
+            this.wasDragged = false;
+        }
+    }
+
+    // Handle drag move
+    handleDragMove(x, y) {
+        if (!this.visible || !this.isDragging) return;
+
+        const deltaY = this.lastDragY - y;
+        this.lastDragY = y;
+
+        // Check if this is a significant drag
+        if (Math.abs(y - this.dragStartY) > 10) {
+            this.wasDragged = true;
+        }
+
+        this.editor.scroll(deltaY);
+    }
+
+    // Handle drag end
+    handleDragEnd() {
+        this.isDragging = false;
+    }
+
     // Handle tap/click input
     handleTap(x, y) {
         if (!this.visible) return null;
+
+        // If we were dragging significantly, don't place element
+        if (this.wasDragged) {
+            this.wasDragged = false;
+            return null;
+        }
 
         // Check toolbar (bottom)
         if (y > CONFIG.GAME_HEIGHT - this.toolbarHeight) {
@@ -61,19 +116,18 @@ export class EditorUI {
         }
 
         // Check sidebar (right)
-        if (x > CONFIG.GAME_WIDTH - this.sidebarWidth) {
-            // Pass relative X within sidebar
-            const relativeX = x - (CONFIG.GAME_WIDTH - this.sidebarWidth);
+        if (x > this.editAreaWidth) {
+            const relativeX = x - this.editAreaWidth;
             return this.handleSidebarTap(y, relativeX);
         }
 
         // Grid area - place element
-        this.editor.placeElement(x, y);
+        this.editor.placeElement(x, y, this.editAreaWidth);
         return 'placed';
     }
 
     handleToolbarTap(x, y) {
-        const toolWidth = (CONFIG.GAME_WIDTH - this.sidebarWidth) / this.tools.length;
+        const toolWidth = this.editAreaWidth / this.tools.length;
         const toolIndex = Math.floor(x / toolWidth);
 
         if (toolIndex >= 0 && toolIndex < this.tools.length) {
@@ -83,31 +137,30 @@ export class EditorUI {
         return null;
     }
 
-    handleSidebarTap(y, relativeX = 45) {
-        // Match button positions from drawSidebar()
-        // Prev: y=80, Next: y=115, Add: y=155, Del: y=190
-        if (y >= 80 && y < 110) {
+    handleSidebarTap(y, relativeX = 37) {
+        const sw = this.sidebarWidth;
+
+        // Wave navigation buttons
+        if (y >= 65 && y < 90) {
             this.editor.prevWave();
             return 'prev_wave';
         }
-        if (y >= 115 && y < 145) {
+        if (y >= 95 && y < 120) {
             this.editor.nextWave();
             return 'next_wave';
         }
-        if (y >= 155 && y < 185) {
+        if (y >= 130 && y < 155) {
             this.editor.addWave();
             return 'add_wave';
         }
-        if (y >= 190 && y < 220) {
+        if (y >= 160 && y < 185) {
             this.editor.removeWave();
             return 'remove_wave';
         }
 
-        // Value controls at y=280 (- button at x=5, + button at x=45)
-        // Both buttons are 35w x 25h
-        if (y >= 280 && y < 305) {
-            // Left half = decrement, right half = increment
-            const isLeftButton = relativeX < 45;
+        // Value controls at y=230
+        if (y >= 230 && y < 255) {
+            const isLeftButton = relativeX < sw / 2;
             if (this.editor.selectedTool === 'ring') {
                 if (isLeftButton) {
                     this.editor.decrementRingValue();
@@ -120,22 +173,31 @@ export class EditorUI {
             return isLeftButton ? 'value_down' : 'value_up';
         }
 
-        // Save button at y=350, height=35
-        if (y >= 350 && y < 385) {
+        // Level name (tap to edit) at y=290
+        if (y >= 280 && y < 310) {
+            const newName = prompt('Enter level name:', this.editor.levelName);
+            if (newName !== null && newName.trim()) {
+                this.editor.setLevelName(newName.trim());
+            }
+            return 'edit_name';
+        }
+
+        // Save button at y=330
+        if (y >= 330 && y < 360) {
             this.editor.saveLevel();
             this.saveFlash = 1;
             return 'save';
         }
 
-        // Clear button at y=395, height=30
-        if (y >= 395 && y < 425) {
+        // Clear button at y=370
+        if (y >= 370 && y < 395) {
             this.editor.clearCurrentWave();
             return 'clear';
         }
 
-        // Exit button at CONFIG.GAME_HEIGHT - toolbarHeight - 45, height=35
-        const exitY = CONFIG.GAME_HEIGHT - this.toolbarHeight - 45;
-        if (y >= exitY && y < exitY + 35) {
+        // Exit button at bottom
+        const exitY = CONFIG.GAME_HEIGHT - this.toolbarHeight - 40;
+        if (y >= exitY && y < exitY + 30) {
             return 'exit';
         }
 
@@ -160,6 +222,9 @@ export class EditorUI {
         // Draw sidebar
         this.drawSidebar(ctx);
 
+        // Draw scroll indicator
+        this.drawScrollIndicator(ctx);
+
         // Save flash effect
         if (this.saveFlash > 0) {
             ctx.fillStyle = `rgba(0, 255, 100, ${this.saveFlash * 0.3})`;
@@ -169,31 +234,31 @@ export class EditorUI {
 
     drawGrid(ctx) {
         const gridSize = this.editor.gridSize;
-        const editWidth = CONFIG.GAME_WIDTH - this.sidebarWidth;
         const editHeight = CONFIG.GAME_HEIGHT - this.toolbarHeight;
 
         ctx.strokeStyle = 'rgba(100, 100, 100, 0.2)';
         ctx.lineWidth = 1;
 
         // Vertical lines
-        for (let x = 0; x <= editWidth; x += gridSize) {
+        for (let x = 0; x <= this.editAreaWidth; x += gridSize) {
             ctx.beginPath();
             ctx.moveTo(x, 0);
             ctx.lineTo(x, editHeight);
             ctx.stroke();
         }
 
-        // Horizontal lines
-        for (let y = 0; y <= editHeight; y += gridSize) {
+        // Horizontal lines (offset by scroll)
+        const scrollOffset = this.editor.scrollOffset % gridSize;
+        for (let y = -scrollOffset; y <= editHeight; y += gridSize) {
             ctx.beginPath();
             ctx.moveTo(0, y);
-            ctx.lineTo(editWidth, y);
+            ctx.lineTo(this.editAreaWidth, y);
             ctx.stroke();
         }
     }
 
     drawLanes(ctx) {
-        const laneWidth = CONFIG.GAME_WIDTH / 3;
+        const laneWidth = this.editAreaWidth / 3;
         const editHeight = CONFIG.GAME_HEIGHT - this.toolbarHeight;
 
         ctx.strokeStyle = 'rgba(255, 255, 0, 0.3)';
@@ -221,97 +286,154 @@ export class EditorUI {
 
     drawPreview(ctx) {
         const wave = this.editor.getCurrentWave();
+        const scrollOffset = this.editor.scrollOffset;
+        const editHeight = CONFIG.GAME_HEIGHT - this.toolbarHeight;
+        const laneWidth = this.editAreaWidth / 3;
 
-        // Draw walls
+        // Clip to edit area
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, this.editAreaWidth, editHeight);
+        ctx.clip();
+
+        // Draw walls at their Y positions
         wave.walls.forEach(w => {
-            const laneWidth = CONFIG.GAME_WIDTH / 3;
             const x = laneWidth * w.lane + laneWidth / 2;
+            const screenY = (w.y || 60) - scrollOffset;
             const width = laneWidth - 20;
 
-            ctx.fillStyle = 'rgba(100, 100, 120, 0.6)';
-            ctx.fillRect(x - width / 2, 60, width, 30);
-            ctx.strokeStyle = '#666677';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(x - width / 2, 60, width, 30);
+            // Only draw if visible
+            if (screenY > -40 && screenY < editHeight + 40) {
+                ctx.fillStyle = 'rgba(100, 100, 120, 0.6)';
+                ctx.fillRect(x - width / 2, screenY - 15, width, 30);
+                ctx.strokeStyle = '#666677';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x - width / 2, screenY - 15, width, 30);
 
-            // Wall pattern
-            ctx.fillStyle = '#ff4444';
-            ctx.font = `bold 12px ${CONFIG.FONT_FAMILY}`;
-            ctx.textAlign = 'center';
-            ctx.fillText('WALL', x, 80);
+                ctx.fillStyle = '#ff4444';
+                ctx.font = `bold 10px ${CONFIG.FONT_FAMILY}`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('WALL', x, screenY);
+            }
         });
 
-        // Draw rings
+        // Draw rings at their Y positions
         wave.rings.forEach(r => {
-            const x = r.x * CONFIG.GAME_WIDTH;
-            const color = r.value >= 0 ? '#44aaff' : '#ff4466';
+            const x = r.x * this.editAreaWidth;
+            const screenY = r.y - scrollOffset;
 
-            ctx.beginPath();
-            ctx.arc(x, r.y, 15, 0, Math.PI * 2);
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            if (screenY > -20 && screenY < editHeight + 20) {
+                const color = r.value >= 0 ? '#44aaff' : '#ff4466';
 
-            ctx.fillStyle = color;
-            ctx.font = `bold 10px ${CONFIG.FONT_FAMILY}`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            const text = r.value >= 0 ? `+${r.value}` : `${r.value}`;
-            ctx.fillText(text, x, r.y);
+                ctx.beginPath();
+                ctx.arc(x, screenY, 15, 0, Math.PI * 2);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = color;
+                ctx.font = `bold 10px ${CONFIG.FONT_FAMILY}`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const text = r.value >= 0 ? `+${r.value}` : `${r.value}`;
+                ctx.fillText(text, x, screenY);
+            }
         });
 
-        // Draw gates
+        // Draw gates at their Y positions
         wave.gates.forEach(g => {
-            const x = g.x * CONFIG.GAME_WIDTH;
-            const color = g.type === 'multiply' ? '#ffdd00' : '#aa2222';
-            const text = g.type === 'multiply' ? 'x2' : '/2';
+            const x = g.x * this.editAreaWidth;
+            const screenY = g.y - scrollOffset;
 
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 3;
-            ctx.strokeRect(x - 20, g.y - 12, 40, 24);
+            if (screenY > -20 && screenY < editHeight + 20) {
+                const color = g.type === 'multiply' ? '#ffdd00' : '#aa2222';
+                const text = g.type === 'multiply' ? 'x2' : '/2';
 
-            ctx.fillStyle = color;
-            ctx.font = `bold 14px ${CONFIG.FONT_FAMILY}`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text, x, g.y);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.strokeRect(x - 20, screenY - 12, 40, 24);
+
+                ctx.fillStyle = color;
+                ctx.font = `bold 14px ${CONFIG.FONT_FAMILY}`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(text, x, screenY);
+            }
         });
 
-        // Draw enemies
+        // Draw enemies at their Y positions
         wave.enemies.forEach(e => {
-            const x = e.x * CONFIG.GAME_WIDTH;
+            const x = e.x * this.editAreaWidth;
+            const screenY = (e.y || 40) - scrollOffset;
 
-            ctx.fillStyle = '#ff4444';
-            ctx.font = `bold 10px ${CONFIG.FONT_FAMILY}`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('X', x, 40);
-            ctx.font = `8px ${CONFIG.FONT_FAMILY}`;
-            ctx.fillText(e.type, x, 52);
+            if (screenY > -20 && screenY < editHeight + 20) {
+                // Enemy marker
+                ctx.fillStyle = '#ff4444';
+                ctx.beginPath();
+                ctx.moveTo(x, screenY - 12);
+                ctx.lineTo(x + 10, screenY + 8);
+                ctx.lineTo(x - 10, screenY + 8);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `bold 8px ${CONFIG.FONT_FAMILY}`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(e.type.charAt(0), x, screenY);
+            }
         });
 
+        ctx.restore();
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
     }
 
+    drawScrollIndicator(ctx) {
+        const editHeight = CONFIG.GAME_HEIGHT - this.toolbarHeight;
+        const maxScroll = this.editor.maxWaveHeight - 400;
+        const scrollPercent = this.editor.scrollOffset / maxScroll;
+
+        // Draw scroll bar on right edge of edit area
+        const barX = this.editAreaWidth - 8;
+        const barHeight = editHeight - 40;
+        const thumbHeight = Math.max(30, barHeight * (editHeight / this.editor.maxWaveHeight));
+        const thumbY = 20 + scrollPercent * (barHeight - thumbHeight);
+
+        // Track
+        ctx.fillStyle = 'rgba(50, 50, 50, 0.5)';
+        ctx.fillRect(barX, 20, 6, barHeight);
+
+        // Thumb
+        ctx.fillStyle = 'rgba(150, 150, 150, 0.8)';
+        ctx.fillRect(barX, thumbY, 6, thumbHeight);
+
+        // Height indicator
+        ctx.fillStyle = '#888888';
+        ctx.font = `9px ${CONFIG.FONT_FAMILY}`;
+        ctx.textAlign = 'right';
+        ctx.fillText(`Y:${Math.round(this.editor.scrollOffset)}`, barX - 5, 25);
+        ctx.textAlign = 'left';
+    }
+
     drawToolbar(ctx) {
         const y = CONFIG.GAME_HEIGHT - this.toolbarHeight;
-        const editWidth = CONFIG.GAME_WIDTH - this.sidebarWidth;
 
         // Background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-        ctx.fillRect(0, y, editWidth, this.toolbarHeight);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+        ctx.fillRect(0, y, this.editAreaWidth, this.toolbarHeight);
 
         // Border
         ctx.strokeStyle = '#444444';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(editWidth, y);
+        ctx.lineTo(this.editAreaWidth, y);
         ctx.stroke();
 
         // Tools
-        const toolWidth = editWidth / this.tools.length;
+        const toolWidth = this.editAreaWidth / this.tools.length;
         this.tools.forEach((tool, i) => {
             const x = i * toolWidth;
             const isSelected = this.editor.selectedTool === tool.key;
@@ -328,25 +450,27 @@ export class EditorUI {
 
             // Icon
             ctx.fillStyle = isSelected ? tool.color : '#666666';
-            ctx.font = `bold 24px ${CONFIG.FONT_FAMILY}`;
+            ctx.font = `bold 20px ${CONFIG.FONT_FAMILY}`;
             ctx.textAlign = 'center';
-            ctx.fillText(tool.icon, x + toolWidth / 2, y + 28);
+            ctx.fillText(tool.icon, x + toolWidth / 2, y + 26);
 
             // Label
             ctx.fillStyle = isSelected ? '#ffffff' : '#888888';
-            ctx.font = `10px ${CONFIG.FONT_FAMILY}`;
-            ctx.fillText(tool.label, x + toolWidth / 2, y + 50);
+            ctx.font = `9px ${CONFIG.FONT_FAMILY}`;
+            ctx.fillText(tool.label, x + toolWidth / 2, y + 48);
         });
 
         ctx.textAlign = 'left';
     }
 
     drawSidebar(ctx) {
-        const x = CONFIG.GAME_WIDTH - this.sidebarWidth;
+        const x = this.editAreaWidth;
+        const sw = this.sidebarWidth;
+        const centerX = x + sw / 2;
 
         // Background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-        ctx.fillRect(x, 0, this.sidebarWidth, CONFIG.GAME_HEIGHT);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+        ctx.fillRect(x, 0, sw, CONFIG.GAME_HEIGHT);
 
         // Border
         ctx.strokeStyle = '#444444';
@@ -358,58 +482,84 @@ export class EditorUI {
 
         // Wave info
         ctx.fillStyle = '#ffffff';
-        ctx.font = `bold 12px ${CONFIG.FONT_FAMILY}`;
+        ctx.font = `bold 10px ${CONFIG.FONT_FAMILY}`;
         ctx.textAlign = 'center';
-        const centerX = x + this.sidebarWidth / 2;
-        ctx.fillText(`Wave`, centerX, 40);
-        ctx.font = `bold 16px ${CONFIG.FONT_FAMILY}`;
-        ctx.fillText(`${this.editor.currentWaveIndex + 1}/${this.editor.waves.length}`, centerX, 58);
+        ctx.fillText('WAVE', centerX, 25);
+        ctx.font = `bold 14px ${CONFIG.FONT_FAMILY}`;
+        ctx.fillText(`${this.editor.currentWaveIndex + 1}/${this.editor.waves.length}`, centerX, 45);
 
-        // Navigation buttons
-        this.drawButton(ctx, x + 5, 80, this.sidebarWidth - 10, 30, '< Prev', '#666666');
-        this.drawButton(ctx, x + 5, 115, this.sidebarWidth - 10, 30, 'Next >', '#666666');
-        this.drawButton(ctx, x + 5, 155, this.sidebarWidth - 10, 30, '+ Add', '#448844');
-        this.drawButton(ctx, x + 5, 190, this.sidebarWidth - 10, 30, '- Del', '#884444');
+        // Navigation buttons (compact)
+        this.drawButton(ctx, x + 3, 65, sw - 6, 22, '< Prev', '#555555');
+        this.drawButton(ctx, x + 3, 95, sw - 6, 22, 'Next >', '#555555');
+        this.drawButton(ctx, x + 3, 130, sw - 6, 22, '+ Add', '#336633');
+        this.drawButton(ctx, x + 3, 160, sw - 6, 22, '- Del', '#663333');
 
         // Value controls (for ring/enemy)
-        ctx.fillStyle = '#aaaaaa';
-        ctx.font = `10px ${CONFIG.FONT_FAMILY}`;
-        if (this.editor.selectedTool === 'ring') {
-            ctx.fillText('Ring Value:', centerX, 245);
-            ctx.font = `bold 18px ${CONFIG.FONT_FAMILY}`;
-            ctx.fillStyle = this.editor.selectedRingValue >= 0 ? '#44aaff' : '#ff4466';
-            const valText = this.editor.selectedRingValue >= 0 ? `+${this.editor.selectedRingValue}` : `${this.editor.selectedRingValue}`;
-            ctx.fillText(valText, centerX, 268);
-            this.drawButton(ctx, x + 5, 280, 35, 25, '-', '#666666');
-            this.drawButton(ctx, x + 45, 280, 35, 25, '+', '#666666');
-        } else if (this.editor.selectedTool === 'enemy') {
-            ctx.fillText('Enemy:', centerX, 245);
-            ctx.font = `bold 11px ${CONFIG.FONT_FAMILY}`;
-            ctx.fillStyle = '#ff4444';
-            ctx.fillText(this.editor.selectedEnemyType, centerX, 268);
-            this.drawButton(ctx, x + 5, 280, 35, 25, '<', '#666666');
-            this.drawButton(ctx, x + 45, 280, 35, 25, '>', '#666666');
-        }
-
-        // Level name
         ctx.fillStyle = '#888888';
         ctx.font = `9px ${CONFIG.FONT_FAMILY}`;
-        ctx.fillText(this.editor.levelName, centerX, 335);
+
+        if (this.editor.selectedTool === 'ring') {
+            ctx.fillText('Value:', centerX, 200);
+            ctx.font = `bold 16px ${CONFIG.FONT_FAMILY}`;
+            ctx.fillStyle = this.editor.selectedRingValue >= 0 ? '#44aaff' : '#ff4466';
+            const valText = this.editor.selectedRingValue >= 0 ? `+${this.editor.selectedRingValue}` : `${this.editor.selectedRingValue}`;
+            ctx.fillText(valText, centerX, 218);
+            this.drawButton(ctx, x + 3, 230, sw/2 - 5, 22, '-', '#555555');
+            this.drawButton(ctx, x + sw/2 + 2, 230, sw/2 - 5, 22, '+', '#555555');
+        } else if (this.editor.selectedTool === 'enemy') {
+            ctx.fillText('Type:', centerX, 200);
+            ctx.font = `bold 10px ${CONFIG.FONT_FAMILY}`;
+            ctx.fillStyle = '#ff4444';
+            ctx.fillText(this.editor.selectedEnemyType, centerX, 218);
+            this.drawButton(ctx, x + 3, 230, sw/2 - 5, 22, '<', '#555555');
+            this.drawButton(ctx, x + sw/2 + 2, 230, sw/2 - 5, 22, '>', '#555555');
+        } else {
+            ctx.fillStyle = '#555555';
+            ctx.fillText('Select', centerX, 200);
+            ctx.fillText('Ring/Enemy', centerX, 215);
+        }
+
+        // Level name (editable)
+        ctx.fillStyle = '#666666';
+        ctx.font = `8px ${CONFIG.FONT_FAMILY}`;
+        ctx.fillText('NAME:', centerX, 275);
+
+        // Name box (tap to edit)
+        ctx.fillStyle = 'rgba(50, 50, 80, 0.5)';
+        ctx.fillRect(x + 3, 282, sw - 6, 22);
+        ctx.strokeStyle = '#666688';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 3, 282, sw - 6, 22);
+
+        ctx.fillStyle = '#aaaaff';
+        ctx.font = `bold 9px ${CONFIG.FONT_FAMILY}`;
+        // Truncate name if too long
+        let displayName = this.editor.levelName;
+        if (displayName.length > 8) {
+            displayName = displayName.substring(0, 7) + '…';
+        }
+        ctx.fillText(displayName, centerX, 296);
 
         // Save/Clear buttons
         const saveColor = this.saveFlash > 0 ? '#00ff88' : '#4488ff';
-        this.drawButton(ctx, x + 5, 350, this.sidebarWidth - 10, 35, 'SAVE', saveColor);
-        this.drawButton(ctx, x + 5, 395, this.sidebarWidth - 10, 30, 'Clear', '#884444');
+        this.drawButton(ctx, x + 3, 330, sw - 6, 28, 'SAVE', saveColor);
+        this.drawButton(ctx, x + 3, 370, sw - 6, 22, 'Clear', '#663333');
 
         // Stats
         const stats = this.editor.getWaveStats();
-        ctx.fillStyle = '#666666';
+        ctx.fillStyle = '#555555';
         ctx.font = `8px ${CONFIG.FONT_FAMILY}`;
-        ctx.fillText(`R:${stats.rings} E:${stats.enemies}`, centerX, 450);
-        ctx.fillText(`W:${stats.walls} G:${stats.gates}`, centerX, 462);
+        ctx.fillText(`R:${stats.rings} E:${stats.enemies}`, centerX, 410);
+        ctx.fillText(`W:${stats.walls} G:${stats.gates}`, centerX, 422);
+
+        // Scroll hint
+        ctx.fillStyle = '#444444';
+        ctx.font = `7px ${CONFIG.FONT_FAMILY}`;
+        ctx.fillText('Drag/Scroll', centerX, 445);
+        ctx.fillText('to pan', centerX, 455);
 
         // Exit button
-        this.drawButton(ctx, x + 5, CONFIG.GAME_HEIGHT - this.toolbarHeight - 45, this.sidebarWidth - 10, 35, 'EXIT', '#ff4444');
+        this.drawButton(ctx, x + 3, CONFIG.GAME_HEIGHT - this.toolbarHeight - 40, sw - 6, 28, 'EXIT', '#aa3333');
 
         ctx.textAlign = 'left';
     }
@@ -425,7 +575,7 @@ export class EditorUI {
         ctx.strokeRect(x, y, width, height);
 
         ctx.fillStyle = '#ffffff';
-        ctx.font = `bold 11px ${CONFIG.FONT_FAMILY}`;
+        ctx.font = `bold 10px ${CONFIG.FONT_FAMILY}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(text, x + width / 2, y + height / 2);
