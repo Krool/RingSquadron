@@ -85,14 +85,16 @@ export class EditorSystem {
     }
 
     // Place an element at the given screen coordinates
-    placeElement(x, y, editAreaWidth) {
+    // editAreaHeight is needed for flipped Y axis calculation
+    placeElement(x, y, editAreaWidth, editAreaHeight = 530) {
         const wave = this.getCurrentWave();
 
         // Normalize X to 0-1 range (relative to edit area, not full width)
         const normalizedX = Math.min(1, Math.max(0, x / editAreaWidth));
 
-        // Convert screen Y to world Y (accounting for scroll)
-        const worldY = y + this.scrollOffset;
+        // Convert screen Y to world Y (flipped: higher on screen = higher worldY = spawns later)
+        // Formula: worldY = editAreaHeight - screenY + scrollOffset
+        const worldY = editAreaHeight - y + this.scrollOffset;
 
         // Snap Y to grid
         const snappedY = Math.round(worldY / this.gridSize) * this.gridSize;
@@ -161,16 +163,18 @@ export class EditorSystem {
                 break;
 
             case 'erase':
-                this.eraseAt(x, y, editAreaWidth);
+                this.eraseAt(x, y, editAreaWidth, editAreaHeight);
                 break;
         }
     }
 
     // Erase element at position
-    eraseAt(x, y, editAreaWidth) {
+    // editAreaHeight is needed for flipped Y axis calculation
+    eraseAt(x, y, editAreaWidth, editAreaHeight = 530) {
         const wave = this.getCurrentWave();
         const normalizedX = x / editAreaWidth;
-        const worldY = y + this.scrollOffset;
+        // Flipped Y: worldY = editAreaHeight - screenY + scrollOffset
+        const worldY = editAreaHeight - y + this.scrollOffset;
         const tolerance = 0.15;
         const yTolerance = 40;
 

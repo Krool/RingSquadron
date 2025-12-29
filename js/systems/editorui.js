@@ -24,6 +24,7 @@ export class EditorUI {
 
         // Calculate edit area (excludes sidebar)
         this.editAreaWidth = CONFIG.GAME_WIDTH - this.sidebarWidth;
+        this.editAreaHeight = CONFIG.GAME_HEIGHT - this.toolbarHeight;
 
         // Tool definitions
         this.tools = [
@@ -70,10 +71,10 @@ export class EditorUI {
         }
     }
 
-    // Handle mouse wheel for scrolling
+    // Handle mouse wheel for scrolling (inverted for flipped Y axis)
     handleWheel(deltaY) {
         if (!this.visible) return;
-        this.editor.scroll(deltaY * 0.5);
+        this.editor.scroll(-deltaY * 0.5);
     }
 
     // Handle press start (mouse down / touch start)
@@ -113,11 +114,11 @@ export class EditorUI {
             this.pendingTap = null;  // Cancel pending tap - this is a drag
         }
 
-        // Pan the view if dragging in edit area
+        // Pan the view if dragging in edit area (inverted for flipped Y axis)
         if (this.isDragging && this.wasDragged) {
             const deltaY = this.lastDragY - y;
             this.lastDragY = y;
-            this.editor.scroll(deltaY);
+            this.editor.scroll(-deltaY);
         }
     }
 
@@ -153,7 +154,7 @@ export class EditorUI {
 
         // Grid area - place element only if we have a pending tap (wasn't dragged)
         if (this.pendingTap) {
-            this.editor.placeElement(this.pendingTap.x, this.pendingTap.y, this.editAreaWidth);
+            this.editor.placeElement(this.pendingTap.x, this.pendingTap.y, this.editAreaWidth, this.editAreaHeight);
             this.pendingTap = null;
             return 'placed';
         }
@@ -404,7 +405,8 @@ export class EditorUI {
 
     drawGrid(ctx) {
         const gridSize = this.editor.gridSize;
-        const editHeight = CONFIG.GAME_HEIGHT - this.toolbarHeight;
+        const editHeight = this.editAreaHeight;
+        const scrollOffset = this.editor.scrollOffset;
 
         ctx.strokeStyle = 'rgba(100, 100, 100, 0.2)';
         ctx.lineWidth = 1;
@@ -417,19 +419,25 @@ export class EditorUI {
             ctx.stroke();
         }
 
-        // Horizontal lines (offset by scroll)
-        const scrollOffset = this.editor.scrollOffset % gridSize;
-        for (let y = -scrollOffset; y <= editHeight; y += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(this.editAreaWidth, y);
-            ctx.stroke();
+        // Horizontal lines (flipped Y axis)
+        // Convert worldY grid lines to screen coordinates
+        const startWorldY = Math.floor(scrollOffset / gridSize) * gridSize;
+        const endWorldY = scrollOffset + editHeight + gridSize;
+
+        for (let worldY = startWorldY; worldY <= endWorldY; worldY += gridSize) {
+            const screenY = editHeight - worldY + scrollOffset;
+            if (screenY >= 0 && screenY <= editHeight) {
+                ctx.beginPath();
+                ctx.moveTo(0, screenY);
+                ctx.lineTo(this.editAreaWidth, screenY);
+                ctx.stroke();
+            }
         }
     }
 
     drawLanes(ctx) {
         const laneWidth = this.editAreaWidth / 3;
-        const editHeight = CONFIG.GAME_HEIGHT - this.toolbarHeight;
+        const editHeight = this.editAreaHeight;
 
         ctx.strokeStyle = 'rgba(255, 255, 0, 0.3)';
         ctx.lineWidth = 2;
@@ -444,20 +452,29 @@ export class EditorUI {
 
         ctx.setLineDash([]);
 
-        // Lane labels
+        // Lane labels at top
         ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
         ctx.font = `10px ${CONFIG.FONT_FAMILY}`;
         ctx.textAlign = 'center';
         ctx.fillText('LEFT', laneWidth * 0.5, 15);
         ctx.fillText('CENTER', laneWidth * 1.5, 15);
         ctx.fillText('RIGHT', laneWidth * 2.5, 15);
+
+        // Orientation labels (flipped Y: top = later, bottom = earlier)
+        ctx.fillStyle = 'rgba(100, 200, 100, 0.6)';
+        ctx.font = `bold 9px ${CONFIG.FONT_FAMILY}`;
+        ctx.fillText('↑ LATER IN WAVE', this.editAreaWidth / 2, 30);
+
+        ctx.fillStyle = 'rgba(200, 150, 100, 0.6)';
+        ctx.fillText('↓ EARLIER IN WAVE', this.editAreaWidth / 2, editHeight - 10);
+
         ctx.textAlign = 'left';
     }
 
     drawPreview(ctx) {
         const wave = this.editor.getCurrentWave();
         const scrollOffset = this.editor.scrollOffset;
-        const editHeight = CONFIG.GAME_HEIGHT - this.toolbarHeight;
+        const editHeight = this.editAreaHeight;
         const laneWidth = this.editAreaWidth / 3;
 
         // Clip to edit area
@@ -466,10 +483,14 @@ export class EditorUI {
         ctx.rect(0, 0, this.editAreaWidth, editHeight);
         ctx.clip();
 
+        // Y transformation: higher worldY = higher on screen (flipped)
+        // screenY = editHeight - worldY + scrollOffset
+        const toScreenY = (worldY) => editHeight - worldY + scrollOffset;
+
         // Draw walls at their Y positions
         wave.walls.forEach(w => {
             const x = laneWidth * w.lane + laneWidth / 2;
-            const screenY = (w.y || 60) - scrollOffset;
+            const screenY = toScreenY(w.y || 60);
             const width = laneWidth - 20;
 
             // Only draw if visible
@@ -491,7 +512,7 @@ export class EditorUI {
         // Draw rings at their Y positions
         wave.rings.forEach(r => {
             const x = r.x * this.editAreaWidth;
-            const screenY = r.y - scrollOffset;
+            const screenY = toScreenY(r.y);
 
             if (screenY > -20 && screenY < editHeight + 20) {
                 const color = r.value >= 0 ? '#44aaff' : '#ff4466';
@@ -514,7 +535,7 @@ export class EditorUI {
         // Draw gates at their Y positions
         wave.gates.forEach(g => {
             const x = g.x * this.editAreaWidth;
-            const screenY = g.y - scrollOffset;
+            const screenY = toScreenY(g.y);
 
             if (screenY > -20 && screenY < editHeight + 20) {
                 const color = g.type === 'multiply' ? '#ffdd00' : '#aa2222';
@@ -535,7 +556,7 @@ export class EditorUI {
         // Draw enemies at their Y positions
         wave.enemies.forEach(e => {
             const x = e.x * this.editAreaWidth;
-            const screenY = (e.y || 40) - scrollOffset;
+            const screenY = toScreenY(e.y || 40);
 
             if (screenY > -20 && screenY < editHeight + 20) {
                 // Enemy marker
