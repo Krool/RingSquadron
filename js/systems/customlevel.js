@@ -85,8 +85,8 @@ export class CustomLevelManager {
             this.waveSpawned = true;
         }
 
-        // Process pending enemy spawns with delays
-        this.processPendingSpawns(currentTime, enemies);
+        // Process pending spawns - entities spawn progressively based on Y position
+        this.processPendingSpawns(currentTime, rings, enemies, walls);
 
         // Check if wave is complete
         if (this.waveSpawned && this.isWaveComplete(enemies)) {
@@ -99,69 +99,115 @@ export class CustomLevelManager {
         }
     }
 
-    // Spawn all entities for current wave
-    // Y positions in editor represent spawn order - higher Y = spawns later (further above screen)
+    // Queue all entities for progressive spawning based on Y position
+    // Y positions in editor represent spawn order - higher Y = spawns later
     spawnWaveEntities(wave, rings, enemies, walls, currentTime) {
         // Use FULL game width for spawning - editor normalizes X to 0-1 range
         const gameWidth = CONFIG.GAME_WIDTH;
 
-        // Spawn rings
+        // Calculate spawn delay based on Y position
+        // Higher Y = later spawn. Use scroll speed to determine timing.
+        const scrollSpeed = CONFIG.RING_SPEED * 60; // pixels per second (speed * fps)
+
+        // Queue rings for spawning
         if (wave.rings) {
             for (const ringDef of wave.rings) {
-                const x = ringDef.x * gameWidth;
-                const ring = new Ring(x, -ringDef.y, ringDef.value);
-
-                if (ringDef.path && ringDef.path !== 'straight') {
-                    ring.setPath(ringDef.path, ringDef.params || {});
-                }
-
-                rings.push(ring);
-                this.waveRings.push(ring);
+                const spawnDelay = ((ringDef.y || 0) / scrollSpeed) * 1000; // ms
+                this.pendingSpawns.push({
+                    type: 'ring',
+                    spawnTime: currentTime + spawnDelay,
+                    def: ringDef,
+                    x: ringDef.x * gameWidth
+                });
             }
         }
 
-        // Spawn gates (as rings with multiplier)
+        // Queue gates for spawning
         if (wave.gates) {
             for (const gateDef of wave.gates) {
-                const x = gateDef.x * gameWidth;
-                const ring = new Ring(x, -gateDef.y, 0);
-                ring.setMultiplierGate(gateDef.type);
-                rings.push(ring);
-                this.waveRings.push(ring);
+                const spawnDelay = ((gateDef.y || 0) / scrollSpeed) * 1000;
+                this.pendingSpawns.push({
+                    type: 'gate',
+                    spawnTime: currentTime + spawnDelay,
+                    def: gateDef,
+                    x: gateDef.x * gameWidth
+                });
             }
         }
 
-        // Spawn enemies at their Y positions
+        // Queue enemies for spawning
         if (wave.enemies) {
             for (const enemyDef of wave.enemies) {
-                const x = enemyDef.x * gameWidth;
-                const y = -(enemyDef.y || 50);  // Spawn above screen
-                const enemy = new Enemy(x, y, enemyDef.type);
-                enemies.push(enemy);
-                this.waveEnemies.push(enemy);
+                const spawnDelay = ((enemyDef.y || 0) / scrollSpeed) * 1000;
+                this.pendingSpawns.push({
+                    type: 'enemy',
+                    spawnTime: currentTime + spawnDelay,
+                    def: enemyDef,
+                    x: enemyDef.x * gameWidth
+                });
             }
         }
 
-        // Spawn walls at their Y positions
+        // Queue walls for spawning
         if (wave.walls) {
             for (const wallDef of wave.walls) {
+                const spawnDelay = ((wallDef.y || 0) / scrollSpeed) * 1000;
                 const laneWidth = gameWidth / 3;
-                const x = laneWidth * wallDef.lane + laneWidth / 2;
-                const y = -(wallDef.y || 40);  // Spawn above screen
-                const wall = new Wall(x, y, wallDef.lane, wallDef.type || 'SOLID');
-                walls.push(wall);
-                this.waveWalls.push(wall);
+                this.pendingSpawns.push({
+                    type: 'wall',
+                    spawnTime: currentTime + spawnDelay,
+                    def: wallDef,
+                    x: laneWidth * wallDef.lane + laneWidth / 2
+                });
             }
         }
+
+        // Sort by spawn time so earlier spawns are processed first
+        this.pendingSpawns.sort((a, b) => a.spawnTime - b.spawnTime);
     }
 
-    // Process delayed enemy spawns (legacy - now enemies spawn immediately at Y position)
-    processPendingSpawns(currentTime, enemies) {
-        // No longer used - enemies spawn with Y position directly
+    // Process pending spawns - spawn entities when their time comes
+    processPendingSpawns(currentTime, rings, enemies, walls) {
+        while (this.pendingSpawns.length > 0 && this.pendingSpawns[0].spawnTime <= currentTime) {
+            const spawn = this.pendingSpawns.shift();
+
+            switch (spawn.type) {
+                case 'ring': {
+                    const ring = new Ring(spawn.x, -50, spawn.def.value);
+                    if (spawn.def.path && spawn.def.path !== 'straight') {
+                        ring.setPath(spawn.def.path, spawn.def.params || {});
+                    }
+                    rings.push(ring);
+                    this.waveRings.push(ring);
+                    break;
+                }
+                case 'gate': {
+                    const ring = new Ring(spawn.x, -50, 0);
+                    ring.setMultiplierGate(spawn.def.type);
+                    rings.push(ring);
+                    this.waveRings.push(ring);
+                    break;
+                }
+                case 'enemy': {
+                    const enemy = new Enemy(spawn.x, -50, spawn.def.type);
+                    enemies.push(enemy);
+                    this.waveEnemies.push(enemy);
+                    break;
+                }
+                case 'wall': {
+                    const wall = new Wall(spawn.x, -50, spawn.def.lane, spawn.def.type || 'SOLID');
+                    walls.push(wall);
+                    this.waveWalls.push(wall);
+                    break;
+                }
+            }
+        }
     }
 
     // Check if current wave is complete
     isWaveComplete(allEnemies) {
+        // Still have pending spawns
+        if (this.pendingSpawns.length > 0) return false;
 
         // All wave enemies must be dead
         const waveEnemiesAlive = this.waveEnemies.filter(e => e.active).length;
