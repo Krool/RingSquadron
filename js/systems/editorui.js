@@ -41,14 +41,8 @@ export class EditorUI {
         this.animTime = 0;
         this.saveFlash = 0;
 
-        // Drag state for panning - using larger threshold for mobile
-        this.isDragging = false;
-        this.lastDragY = 0;
-        this.dragStartY = 0;
-        this.dragStartX = 0;
-        this.wasDragged = false;  // True if significant drag occurred
-        this.pendingTap = null;   // Store tap position, only place on release if not dragged
-        this.dragThreshold = 20;  // Pixels of movement before considered a drag (increased for mobile)
+        // Page-based scrolling (no drag - just buttons)
+        this.pageHeight = this.editAreaHeight; // One screen per page
 
         // Load level mode
         this.showingLoadList = false;
@@ -73,102 +67,48 @@ export class EditorUI {
         }
     }
 
-    // Handle mouse wheel for scrolling (inverted for flipped Y axis)
+    // Handle mouse wheel for scrolling (desktop only)
     handleWheel(deltaY) {
         if (!this.visible) return;
         this.editor.scroll(-deltaY * 0.5);
     }
 
-    // Handle press start (mouse down / touch start)
-    handlePressStart(x, y) {
-        if (!this.visible) return;
-
-        // If showing load list, handle separately
-        if (this.showingLoadList) {
-            return;
-        }
-
-        // Record start position for drag detection
-        this.dragStartX = x;
-        this.dragStartY = y;
-        this.lastDragY = y;
-        this.wasDragged = false;
-
-        // Only track as drag in edit area
-        if (x < this.editAreaWidth && y < CONFIG.GAME_HEIGHT - this.toolbarHeight) {
-            this.isDragging = true;
-            this.pendingTap = { x, y };  // Store for potential placement on release
-        } else {
-            this.isDragging = false;
-            this.pendingTap = null;
-        }
-    }
-
-    // Handle drag move
-    handleDragMove(x, y) {
-        if (!this.visible) return;
-
-        // Check if this is a significant drag (using larger threshold for mobile)
-        const dx = x - this.dragStartX;
-        const dy = y - this.dragStartY;
-        const totalMove = Math.sqrt(dx * dx + dy * dy);
-
-        if (totalMove > this.dragThreshold) {
-            this.wasDragged = true;
-            this.pendingTap = null;  // Cancel pending tap - this is a drag
-        }
-
-        // Pan the view if dragging in edit area (inverted for flipped Y axis)
-        if (this.isDragging && this.wasDragged) {
-            const deltaY = this.lastDragY - y;
-            this.lastDragY = y;
-            this.editor.scroll(-deltaY);
-        }
-    }
-
-    // Handle press end (mouse up / touch end)
-    handlePressEnd(x, y) {
+    // Simple tap handler - no drag detection needed
+    handleTap(x, y) {
         if (!this.visible) return null;
-
-        const wasShowingLoadList = this.showingLoadList;
-        this.isDragging = false;
 
         // If showing load list, handle tap on list
         if (this.showingLoadList) {
             return this.handleLoadListTap(x, y);
         }
 
-        // If we dragged, don't place anything
-        if (this.wasDragged) {
-            this.wasDragged = false;
-            this.pendingTap = null;
-            return null;
-        }
-
-        // Check toolbar (bottom) - immediate response
+        // Check toolbar (bottom)
         if (y > CONFIG.GAME_HEIGHT - this.toolbarHeight) {
             return this.handleToolbarTap(x, y);
         }
 
-        // Check sidebar (right) - immediate response
+        // Check sidebar (right)
         if (x > this.editAreaWidth) {
             const relativeX = x - this.editAreaWidth;
             return this.handleSidebarTap(y, relativeX);
         }
 
-        // Grid area - place element only if we have a pending tap (wasn't dragged)
-        if (this.pendingTap) {
-            this.editor.placeElement(this.pendingTap.x, this.pendingTap.y, this.editAreaWidth, this.editAreaHeight);
-            this.pendingTap = null;
+        // Grid area - place element
+        if (x < this.editAreaWidth && y < CONFIG.GAME_HEIGHT - this.toolbarHeight) {
+            this.editor.placeElement(x, y, this.editAreaWidth, this.editAreaHeight);
             return 'placed';
         }
 
         return null;
     }
 
-    // Legacy method for compatibility
-    handleTap(x, y) {
-        return this.handlePressEnd(x, y);
+    // Page navigation
+    pageUp() {
+        this.editor.scroll(this.pageHeight);
+    }
+
+    pageDown() {
+        this.editor.scroll(-this.pageHeight);
     }
 
     // Show the load level list
@@ -288,6 +228,16 @@ export class EditorUI {
         if (y >= 375 && y < 400) {
             this.editor.clearCurrentWave();
             return 'clear';
+        }
+
+        // Page navigation buttons at y=430 and y=458
+        if (y >= 430 && y < 452) {
+            this.pageUp();
+            return 'page_up';
+        }
+        if (y >= 458 && y < 480) {
+            this.pageDown();
+            return 'page_down';
         }
 
         // Exit button at bottom
@@ -764,14 +714,19 @@ export class EditorUI {
         const stats = this.editor.getWaveStats();
         ctx.fillStyle = '#555555';
         ctx.font = `8px ${CONFIG.FONT_FAMILY}`;
-        ctx.fillText(`R:${stats.rings} E:${stats.enemies}`, centerX, 415);
-        ctx.fillText(`W:${stats.walls} G:${stats.gates}`, centerX, 427);
+        ctx.fillText(`R:${stats.rings} E:${stats.enemies}`, centerX, 405);
+        ctx.fillText(`W:${stats.walls} G:${stats.gates}`, centerX, 417);
 
-        // Scroll hint
-        ctx.fillStyle = '#444444';
-        ctx.font = `7px ${CONFIG.FONT_FAMILY}`;
-        ctx.fillText('Drag/Scroll', centerX, 450);
-        ctx.fillText('to pan', centerX, 460);
+        // Page navigation buttons
+        this.drawButton(ctx, x + 3, 430, sw - 6, 22, '↑ Page', '#446688');
+        this.drawButton(ctx, x + 3, 458, sw - 6, 22, '↓ Page', '#446688');
+
+        // Current page indicator
+        const currentPage = Math.floor(this.editor.scrollOffset / this.pageHeight) + 1;
+        const maxPage = Math.ceil(this.editor.maxWaveHeight / this.pageHeight);
+        ctx.fillStyle = '#666666';
+        ctx.font = `8px ${CONFIG.FONT_FAMILY}`;
+        ctx.fillText(`Page ${currentPage}/${maxPage}`, centerX, 495);
 
         // Exit button
         this.drawButton(ctx, x + 3, CONFIG.GAME_HEIGHT - this.toolbarHeight - 40, sw - 6, 28, 'EXIT', '#aa3333');

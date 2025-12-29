@@ -597,25 +597,11 @@ class Game {
     updateEditor(deltaTime) {
         this.editorUI.update(deltaTime);
 
-        const target = this.input.getTarget();
-
-        // Handle press/drag for panning and tap detection
-        if (this.input.isPressed() && target) {
-            if (!this.editorUI.isDragging) {
-                // Press started
-                this.editorUI.handlePressStart(target.x, target.y);
-            } else {
-                // Dragging
-                this.editorUI.handleDragMove(target.x, target.y);
-            }
-        }
-
-        // Handle release (tap detection happens in handlePressEnd)
+        // Simple tap handling - no drag detection needed
         if (this.input.checkTap()) {
+            const target = this.input.getTarget();
             if (target) {
-                // handlePressEnd determines if it was a tap or drag
-                // Only places element if it was a tap (not dragged)
-                const result = this.editorUI.handlePressEnd(target.x, target.y);
+                const result = this.editorUI.handleTap(target.x, target.y);
                 if (result === 'exit') {
                     this.exitEditor();
                 } else if (result === 'save') {
