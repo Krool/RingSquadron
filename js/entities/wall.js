@@ -48,26 +48,45 @@ export class Wall {
     draw(renderer) {
         if (!this.active) return;
 
+        const ctx = renderer.ctx;
+        const left = this.x - this.width / 2;
+        const top = this.y - this.height / 2;
+
         // Pulse effect for danger
         const pulse = Math.sin(this.pulseTimer * 4) * 0.15 + 0.85;
 
-        // Wall color - metallic gray with red warning
-        const baseColor = '#666677';
-        const accentColor = '#ff4444';
+        // Main wall body - dark metallic
+        ctx.fillStyle = `rgba(80, 80, 100, ${pulse})`;
+        ctx.fillRect(left, top, this.width, this.height);
 
-        // Draw solid wall using ASCII blocks
-        const wallSprite = [
-            '|############|',
-            '|============|',
-            '|############|'
-        ];
+        // Border
+        ctx.strokeStyle = '#888899';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(left, top, this.width, this.height);
 
-        renderer.drawSpriteCentered(wallSprite, this.x, this.y, baseColor);
+        // Hazard stripes on edges
+        const stripeWidth = 8;
+        ctx.fillStyle = '#ff4444';
+        ctx.fillRect(left, top, stripeWidth, this.height);
+        ctx.fillRect(left + this.width - stripeWidth, top, stripeWidth, this.height);
 
-        // Draw warning stripes on edges
-        const stripeSprite = ['!', '!', '!'];
-        renderer.drawSpriteCentered(stripeSprite, this.x - this.width/2 + 10, this.y, accentColor);
-        renderer.drawSpriteCentered(stripeSprite, this.x + this.width/2 - 10, this.y, accentColor);
+        // Center line pattern
+        ctx.strokeStyle = '#555566';
+        ctx.lineWidth = 1;
+        const centerY = this.y;
+        ctx.beginPath();
+        ctx.moveTo(left + stripeWidth + 5, centerY);
+        ctx.lineTo(left + this.width - stripeWidth - 5, centerY);
+        ctx.stroke();
+
+        // Hazard text
+        ctx.fillStyle = '#ffaaaa';
+        ctx.font = `bold 10px ${CONFIG.FONT_FAMILY}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('DANGER', this.x, this.y);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
     }
 
     getBounds() {
