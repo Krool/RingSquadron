@@ -135,88 +135,104 @@ export const CAMPAIGN_LEVELS = [
     // === CHAPTER 2: Risk vs Reward ===
     {
         id: 4,
-        name: "Calculated Risks",
+        name: "Multiply or Die",
         chapter: 2,
-        description: "Negative rings give you gold! But cost allies...",
+        description: "Use x2 gates to grow your fleet!",
         waves: [
             {
                 delay: 1000,
                 rings: [
-                    { x: 0.5, y: -50, value: -3, path: 'straight', goldBonus: 50 }
+                    { x: 0.5, y: -50, value: 3, path: 'straight' }
+                ],
+                gates: [
+                    { x: 0.3, y: -100, type: 'multiply', path: 'straight' },
+                    { x: 0.7, y: -100, type: 'divide', path: 'straight' }
                 ],
                 enemies: [],
-                message: "Negative rings drop gold!"
+                message: "x2 doubles your allies!"
             },
             {
                 delay: 4000,
                 rings: [
-                    { x: 0.3, y: -30, value: 5, path: 'straight' },
-                    { x: 0.5, y: -60, value: -8, path: 'straight', goldBonus: 100 },
-                    { x: 0.7, y: -30, value: 5, path: 'straight' }
+                    { x: 0.5, y: -30, value: 2, path: 'straight' }
                 ],
-                enemies: [],
-                message: "Choose wisely!"
+                gates: [
+                    { x: 0.3, y: -80, type: 'multiply', path: 'straight' },
+                    { x: 0.7, y: -80, type: 'multiply', path: 'straight' }
+                ],
+                enemies: [
+                    { x: 0.5, type: 'BASIC', delay: 2000 }
+                ],
+                message: "Both paths are good!"
             },
             {
                 delay: 5000,
                 rings: [
-                    { x: 0.2, y: -20, value: -10, path: 'sine', params: { amplitude: 40, frequency: 0.02 }, goldBonus: 150 },
-                    { x: 0.5, y: -80, value: 8, path: 'straight' },
-                    { x: 0.8, y: -20, value: -10, path: 'sine', params: { amplitude: 40, frequency: 0.02 }, goldBonus: 150 }
+                    { x: 0.2, y: -20, value: 2, path: 'straight' },
+                    { x: 0.8, y: -20, value: 2, path: 'straight' }
+                ],
+                gates: [
+                    { x: 0.5, y: -70, type: 'multiply', path: 'sine', params: { amplitude: 60, frequency: 0.015 } }
                 ],
                 enemies: [
-                    { x: 0.5, type: 'BASIC', delay: 3000 }
-                ]
+                    { x: 0.5, type: 'FAST', delay: 1500 }
+                ],
+                message: "Catch the moving x2!"
             }
         ],
-        victoryCondition: { type: 'gold', amount: 200 },
-        timeLimit: 90000
+        victoryCondition: { type: 'survive', allies: 15 },
+        timeLimit: 60000
     },
     {
         id: 5,
-        name: "The Gauntlet",
+        name: "Gate Runner",
         chapter: 2,
-        description: "Navigate through a field of danger.",
+        description: "Navigate the gate maze!",
         waves: [
             {
                 delay: 500,
                 rings: [
-                    { x: 0.2, y: -20, value: -3, path: 'straight' },
-                    { x: 0.4, y: -40, value: -3, path: 'straight' },
-                    { x: 0.6, y: -60, value: 4, path: 'straight' },
-                    { x: 0.8, y: -40, value: -3, path: 'straight' }
+                    { x: 0.5, y: -30, value: 3, path: 'straight' }
+                ],
+                gates: [
+                    { x: 0.3, y: -70, type: 'divide', path: 'straight' },
+                    { x: 0.7, y: -70, type: 'multiply', path: 'straight' }
                 ],
                 enemies: [],
-                message: "Find the safe path!"
+                message: "Choose the right gate!"
             },
             {
                 delay: 4000,
                 rings: [
-                    { x: 0.15, y: -20, value: -4, path: 'sine', params: { amplitude: 20, frequency: 0.015 } },
-                    { x: 0.35, y: -40, value: -4, path: 'straight' },
-                    { x: 0.5, y: -70, value: 6, path: 'sine', params: { amplitude: 60, frequency: 0.01 } },
-                    { x: 0.65, y: -40, value: -4, path: 'straight' },
-                    { x: 0.85, y: -20, value: -4, path: 'sine', params: { amplitude: 20, frequency: 0.015 } }
+                    { x: 0.3, y: -30, value: 2, path: 'straight' },
+                    { x: 0.7, y: -30, value: 2, path: 'straight' }
                 ],
-                enemies: []
+                gates: [
+                    { x: 0.5, y: -80, type: 'multiply', path: 'straight' }
+                ],
+                enemies: [
+                    { x: 0.3, type: 'BASIC', delay: 1500 },
+                    { x: 0.7, type: 'BASIC', delay: 2000 }
+                ]
             },
             {
                 delay: 5000,
                 rings: [
-                    { x: 0.1, y: -10, value: -5, path: 'straight' },
-                    { x: 0.3, y: -30, value: -5, path: 'straight' },
-                    { x: 0.5, y: -90, value: 10, path: 'spiral', params: { radius: 40, tightness: 0.02 } },
-                    { x: 0.7, y: -30, value: -5, path: 'straight' },
-                    { x: 0.9, y: -10, value: -5, path: 'straight' }
+                    { x: 0.5, y: -30, value: 3, path: 'straight' }
+                ],
+                gates: [
+                    { x: 0.2, y: -70, type: 'divide', path: 'straight' },
+                    { x: 0.5, y: -90, type: 'multiply', path: 'sine', params: { amplitude: 40, frequency: 0.02 } },
+                    { x: 0.8, y: -70, type: 'divide', path: 'straight' }
                 ],
                 enemies: [
                     { x: 0.5, type: 'FAST', delay: 2000 }
                 ],
-                message: "Shoot the spiral!"
+                message: "Center is key!"
             }
         ],
-        victoryCondition: { type: 'survive', allies: 10 },
-        timeLimit: 90000
+        victoryCondition: { type: 'survive', allies: 20 },
+        timeLimit: 60000
     },
     {
         id: 6,
@@ -613,6 +629,22 @@ export class CampaignManager {
 
                 rings.push(ring);
                 this.spawnedRings.push(ring);
+            }
+
+            // Spawn multiplier gates
+            if (wave.gates) {
+                for (const gateDef of wave.gates) {
+                    const x = gateDef.x * CONFIG.GAME_WIDTH;
+                    const ring = new Ring(x, gateDef.y, 0);
+                    ring.setMultiplierGate(gateDef.type); // 'multiply' or 'divide'
+
+                    if (gateDef.path && gateDef.path !== 'straight') {
+                        ring.setPath(gateDef.path, gateDef.params || {});
+                    }
+
+                    rings.push(ring);
+                    this.spawnedRings.push(ring);
+                }
             }
         }
 

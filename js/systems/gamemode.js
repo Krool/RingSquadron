@@ -28,44 +28,46 @@ export const GAME_MODES = {
             isCampaign: true
         }
     },
-    RUSH: {
-        name: 'Rush Mode',
-        description: 'Fast enemies, fast gold',
-        icon: '>',
-        rules: {
-            waves: Infinity,
-            lives: 1,
-            goldMultiplier: 2,
-            difficultyRamp: 'fast',
-            bossEvery: 3,
-            speedMultiplier: 1.5
-        }
-    },
-    SURVIVAL: {
-        name: 'Survival',
-        description: 'No gold, no upgrades, pure skill',
+    WALL: {
+        name: 'Wall Mode',
+        description: 'Dodge indestructible walls',
         icon: '#',
         rules: {
             waves: Infinity,
             lives: 1,
-            goldMultiplier: 0,
-            difficultyRamp: 'aggressive',
-            bossEvery: 5,
-            noShop: true,
-            noPowerups: false
+            goldMultiplier: 1.5,
+            difficultyRamp: 'standard',
+            bossEvery: 0,
+            hasWalls: true,
+            noAllyRings: true
         }
     },
-    PRACTICE: {
-        name: 'Practice',
-        description: 'Infinite health, learn the game',
+    EDITOR: {
+        name: 'Map Editor',
+        description: 'Create custom levels',
+        icon: '*',
+        rules: {
+            waves: 0,
+            lives: Infinity,
+            goldMultiplier: 0,
+            difficultyRamp: 'none',
+            bossEvery: 0,
+            isEditor: true,
+            noHighScore: true,
+            invincible: true
+        }
+    },
+    CUSTOM: {
+        name: 'Custom Levels',
+        description: 'Play user-created levels',
         icon: '?',
         rules: {
-            waves: Infinity,
-            lives: Infinity,
-            goldMultiplier: 0.5,
-            difficultyRamp: 'slow',
-            bossEvery: 10,
-            invincible: true,
+            waves: 0,
+            lives: 3,
+            goldMultiplier: 1,
+            difficultyRamp: 'fixed',
+            bossEvery: 0,
+            isCustom: true,
             noHighScore: true
         }
     }
@@ -418,9 +420,9 @@ export class ModeSelectUI {
         const colors = {
             ENDLESS: '#00ff88',
             CAMPAIGN: '#ffdd00',
-            RUSH: '#ff4444',
-            SURVIVAL: '#ff8800',
-            PRACTICE: '#44aaff'
+            WALL: '#888899',
+            EDITOR: '#ff8800',
+            CUSTOM: '#44aaff'
         };
         return colors[modeKey] || '#ffffff';
     }

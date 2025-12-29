@@ -38,6 +38,10 @@ import { GameModeManager, ModeSelectUI, GAME_MODES } from './systems/gamemode.js
 import { CampaignManager, CAMPAIGN_LEVELS } from './systems/campaign.js';
 import { MusicSystem } from './systems/music.js';
 import { FloatingTextSystem } from './systems/floatingtext.js';
+import { EditorSystem } from './systems/editor.js';
+import { EditorUI } from './systems/editorui.js';
+import { CustomLevelManager } from './systems/customlevel.js';
+import { LevelSelectUI } from './systems/levelselect.js';
 
 class Game {
     constructor() {
@@ -68,6 +72,12 @@ class Game {
         this.highScoreUI = new HighScoreUI(this.save);
         this.floatingText = new FloatingTextSystem();
 
+        // Editor and custom level systems
+        this.editor = new EditorSystem();
+        this.editorUI = new EditorUI(this.editor);
+        this.customLevel = new CustomLevelManager();
+        this.levelSelectUI = new LevelSelectUI();
+
         // Game state
         this.state = 'menu'; // menu, modeSelect, playing, paused, shop, gameover
         this.score = 0;
@@ -89,6 +99,7 @@ class Game {
         this.playerBullets = [];
         this.enemyBullets = [];
         this.rings = [];
+        this.walls = [];
         this.powerUps = [];
         this.boss = null;
         this.bossActive = false;
@@ -147,6 +158,23 @@ class Game {
         this.audio.resume();
         this.music.init();
         this.music.resume();
+
+        const rules = this.gameMode.getRules();
+
+        // Handle special modes
+        if (rules.isEditor) {
+            this.state = 'editor';
+            this.editor.reset();
+            this.editorUI.show();
+            return;
+        }
+
+        if (rules.isCustom) {
+            this.state = 'levelSelect';
+            this.levelSelectUI.show();
+            return;
+        }
+
         this.reset();
         this.state = 'playing';
         // Don't call requestAnimationFrame here - gameLoop is already running
@@ -168,6 +196,7 @@ class Game {
         this.playerBullets = [];
         this.enemyBullets = [];
         this.rings = [];
+        this.walls = [];
         this.powerUps = [];
         this.boss = null;
         this.bossActive = false;
@@ -265,6 +294,18 @@ class Game {
                 break;
             case 'gameover':
                 this.updateGameOver(scaledDelta);
+                this.render();
+                break;
+            case 'editor':
+                this.updateEditor(scaledDelta);
+                this.renderEditor();
+                break;
+            case 'levelSelect':
+                this.updateLevelSelect(scaledDelta);
+                this.renderLevelSelect();
+                break;
+            case 'customPlaying':
+                this.updateCustomPlaying(scaledDelta, currentTime);
                 this.render();
                 break;
         }
@@ -413,6 +454,206 @@ class Game {
         }
     }
 
+    // ========================================
+    // EDITOR MODE
+    // ========================================
+
+    updateEditor(deltaTime) {
+        this.editorUI.update(deltaTime);
+
+        if (this.input.checkTap()) {
+            const target = this.input.getTarget();
+            if (target) {
+                const result = this.editorUI.handleTap(target.x, target.y);
+                if (result === 'exit') {
+                    this.exitEditor();
+                } else if (result === 'save') {
+                    this.audio.playPowerUp();
+                }
+            }
+        }
+    }
+
+    renderEditor() {
+        const ctx = this.canvas.getContext('2d');
+
+        // Clear with dark background
+        ctx.fillStyle = '#0a0a12';
+        ctx.fillRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+
+        // Draw editor UI
+        this.editorUI.draw(ctx);
+    }
+
+    exitEditor() {
+        this.editorUI.hide();
+        this.state = 'menu';
+    }
+
+    // ========================================
+    // LEVEL SELECT MODE
+    // ========================================
+
+    updateLevelSelect(deltaTime) {
+        this.levelSelectUI.update(deltaTime);
+
+        if (this.input.checkTap()) {
+            const target = this.input.getTarget();
+            if (target) {
+                const result = this.levelSelectUI.handleTap(target.x, target.y);
+                if (result === 'back') {
+                    this.exitLevelSelect();
+                } else if (result && result !== 'back') {
+                    // Level was selected - load and start it
+                    this.startCustomLevel(result);
+                }
+            }
+        }
+    }
+
+    renderLevelSelect() {
+        const ctx = this.canvas.getContext('2d');
+
+        // Clear with dark background
+        ctx.fillStyle = '#0a0a12';
+        ctx.fillRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+
+        // Draw level select UI
+        this.levelSelectUI.draw(ctx);
+    }
+
+    exitLevelSelect() {
+        this.levelSelectUI.hide();
+        this.state = 'menu';
+    }
+
+    startCustomLevel(levelName) {
+        if (this.customLevel.loadLevel(levelName)) {
+            this.levelSelectUI.hide();
+            this.reset();
+            this.state = 'customPlaying';
+            this.music.startNormalMusic();
+        }
+    }
+
+    // ========================================
+    // CUSTOM LEVEL PLAYING
+    // ========================================
+
+    updateCustomPlaying(deltaTime, currentTime) {
+        const dt = Math.min(deltaTime, 50);
+
+        // Track play time
+        this.playTime += dt / 1000;
+
+        // Update custom level manager
+        this.customLevel.update(currentTime, this.rings, this.enemies, this.walls, this.player);
+
+        // Check for level complete
+        if (this.customLevel.isComplete()) {
+            this.floatingText.add(CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 50, 'LEVEL COMPLETE!', '#00ff88', 16);
+            this.audio.playWaveStart();
+            this.state = 'gameover';
+            this.gameOverTimer = CONFIG.GAME_OVER_DELAY;
+            return;
+        }
+
+        // Check for level failed
+        if (this.customLevel.isFailed()) {
+            this.state = 'gameover';
+            this.gameOverTimer = CONFIG.GAME_OVER_DELAY;
+            return;
+        }
+
+        // Get power-up modifiers
+        const fireRateMult = this.powerUpManager.getFireRateMultiplier();
+        const hasSpread = this.powerUpManager.hasSpreadShot();
+
+        // Update player
+        const target = this.input.isActive() ? this.input.getTarget() : null;
+        this.player.update(dt, target, currentTime);
+
+        // Fire using weapon system
+        if (this.weapons.canFire(currentTime, fireRateMult)) {
+            const bullets = this.weapons.fire(
+                this.player.x,
+                this.player.y - this.player.height / 2,
+                currentTime,
+                this.player.bulletDamage - CONFIG.PLAYER_BULLET_DAMAGE,
+                hasSpread
+            );
+            this.playerBullets.push(...bullets);
+            this.audio.playShoot();
+            this.haptics.light();
+        }
+
+        // Update allies
+        for (const ally of this.allies) {
+            if (!ally.active) continue;
+
+            const formationPos = this.formation.getFormationPosition(
+                this.player.x,
+                this.player.y,
+                ally.formationIndex
+            );
+            const allyBullets = ally.update(dt, formationPos.x, formationPos.y, currentTime);
+            if (allyBullets.length > 0) {
+                this.playerBullets.push(...allyBullets);
+            }
+        }
+
+        // Update enemies
+        const spawnCallback = this.spawnEnemy.bind(this);
+        for (const enemy of this.enemies) {
+            const enemyBullets = enemy.update(dt, currentTime, this.player.x, this.player.y, spawnCallback);
+            if (enemyBullets.length > 0) {
+                this.enemyBullets.push(...enemyBullets);
+            }
+        }
+
+        // Update bullets
+        for (const bullet of this.playerBullets) {
+            bullet.update(dt);
+        }
+        for (const bullet of this.enemyBullets) {
+            if (bullet.update) bullet.update(dt, this.player);
+        }
+
+        // Update rings
+        for (const ring of this.rings) {
+            ring.update(dt);
+        }
+
+        // Update walls
+        for (const wall of this.walls) {
+            wall.update(dt);
+        }
+
+        // Update power-ups
+        for (const powerUp of this.powerUps) {
+            powerUp.update(dt);
+        }
+
+        this.handleCollisions();
+        this.cleanup();
+
+        // Check player death
+        if (!this.player.active) {
+            if (this.gameMode.loseLife()) {
+                // Respawn with remaining lives
+                this.player.reset(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+                this.shop.applyUpgrades(this.player);
+                this.floatingText.add(CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2, `${this.gameMode.getLives()} LIVES LEFT`, '#ffdd00', 14);
+            } else {
+                // Game over
+                this.state = 'gameover';
+                this.gameOverTimer = CONFIG.GAME_OVER_DELAY;
+                this.audio.playDamage();
+                this.screenFx.flash('#ff0000', 0.5);
+            }
+        }
+    }
+
     spawnEnemy(x, y, type) {
         const enemy = new Enemy(x, y, type);
         this.enemies.push(enemy);
@@ -469,7 +710,18 @@ class Game {
             const difficulty = this.spawner.getDifficulty() * this.gameMode.getDifficultyMultiplier(this.currentWave);
             const allyCount = this.allies.filter(a => a.active).length;
             const spawnRateMult = this.gameMode.getSpawnRateMultiplier();
-            this.spawner.update(currentTime, this.enemies, this.rings, difficulty, allyCount, spawnRateMult);
+            const rules = this.gameMode.getRules();
+            this.spawner.update(
+                currentTime,
+                this.enemies,
+                this.rings,
+                difficulty,
+                allyCount,
+                spawnRateMult,
+                this.walls,
+                rules.hasWalls || false,
+                rules.noAllyRings || false
+            );
         }
 
         // Update boss
@@ -627,6 +879,11 @@ class Game {
         // Update rings
         for (const ring of this.rings) {
             ring.update(dt);
+        }
+
+        // Update walls
+        for (const wall of this.walls) {
+            wall.update(dt);
         }
 
         this.handleCollisions();
@@ -951,6 +1208,37 @@ class Game {
                 }
             }
         );
+
+        // Wall collisions (Wall Mode only)
+        if (this.gameMode.getRules().hasWalls && this.walls.length > 0) {
+            // Bullets blocked by walls (both player and enemy)
+            CollisionSystem.checkBulletWallCollisions(this.playerBullets, this.walls);
+            CollisionSystem.checkBulletWallCollisions(this.enemyBullets, this.walls);
+
+            // Player instant death on wall collision
+            if (CollisionSystem.checkPlayerWallCollision(this.player, this.walls)) {
+                if (!this.gameMode.isInvincible()) {
+                    this.player.health = 0;
+                    this.player.active = false;
+                    this.audio.playExplosion();
+                    this.particles.explosion(this.player.x, this.player.y, 2);
+                    this.screenFx.shake(20, 0.5);
+                    this.screenFx.flash('#ff0000', 0.4, 0.05);
+                    this.haptics.death();
+                }
+            }
+
+            // Allies destroyed by walls
+            let alliesLost = false;
+            CollisionSystem.checkAllyWallCollisions(this.allies, this.walls, (ally) => {
+                ally.active = false;
+                this.particles.explosion(ally.x, ally.y, 0.4);
+                alliesLost = true;
+            });
+            if (alliesLost) {
+                this.formation.reassignFormations(this.allies);
+            }
+        }
     }
 
     // Calculate ally damage multiplier based on total ally count
@@ -995,6 +1283,7 @@ class Game {
         this.enemies = this.enemies.filter(e => e.active);
         this.allies = this.allies.filter(a => a.active);
         this.rings = this.rings.filter(r => r.active);
+        this.walls = this.walls.filter(w => w.active);
         this.powerUps = this.powerUps.filter(p => p.active);
 
         // Clean up boss
@@ -1246,6 +1535,11 @@ class Game {
         // Draw rings
         for (const ring of this.rings) {
             ring.draw(this.renderer);
+        }
+
+        // Draw walls
+        for (const wall of this.walls) {
+            wall.draw(this.renderer);
         }
 
         // Draw power-ups

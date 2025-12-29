@@ -21,6 +21,7 @@
 import { CONFIG } from '../utils/config.js';
 import { Enemy } from '../entities/enemy.js';
 import { Ring } from '../entities/ring.js';
+import { Wall } from '../entities/wall.js';
 
 export class SpawnerSystem {
     constructor(gameWidth, gameHeight) {
@@ -45,11 +46,16 @@ export class SpawnerSystem {
         this.lastBusSpawn = 0;
         this.busSpawnInterval = 15000; // BUS every 15 seconds after wave 3
 
+        // Wall spawning (for Wall Mode)
+        this.lastWallSpawn = 0;
+        this.wallSpawnInterval = 2500; // Base interval between wall spawns
+        this.lastWallLanes = []; // Track which lanes had walls last time
+
         // Endless mode scaling
         this.endlessMode = true;
     }
 
-    update(currentTime, enemies, rings, difficulty = 1, allyCount = 0, modeSpawnMult = 1) {
+    update(currentTime, enemies, rings, difficulty = 1, allyCount = 0, modeSpawnMult = 1, walls = null, hasWalls = false, noAllyRings = false) {
         // Apply endless scaling to spawn rate
         const scaling = CONFIG.ENDLESS_SCALING;
         const spawnMult = (1 + (this.waveNumber - 1) * scaling.spawnRatePerWave) * modeSpawnMult;
@@ -65,18 +71,66 @@ export class SpawnerSystem {
             this.lastWaveSpawn = currentTime;
         }
 
-        // BUS enemy spawning - starts at wave 3, one lane at a time
-        if (this.waveNumber >= 3 && currentTime - this.lastBusSpawn >= this.busSpawnInterval) {
+        // BUS enemy spawning - starts at wave 3, one lane at a time (not in wall mode)
+        if (!hasWalls && this.waveNumber >= 3 && currentTime - this.lastBusSpawn >= this.busSpawnInterval) {
             this.spawnBusEnemy(enemies, difficulty, allyCount);
             this.lastBusSpawn = currentTime;
         }
 
-        // Spawn rings with paths - more negative rings as player gets stronger
-        const ringInterval = Math.max(800, CONFIG.RING_SPAWN_INTERVAL - difficulty * 150);
-        if (currentTime - this.lastRingSpawn >= ringInterval) {
-            this.spawnRingPattern(rings, difficulty, allyCount);
-            this.lastRingSpawn = currentTime;
+        // Wall spawning (Wall Mode only)
+        if (hasWalls && walls !== null) {
+            const wallInterval = Math.max(1800, this.wallSpawnInterval - difficulty * 80);
+            if (currentTime - this.lastWallSpawn >= wallInterval) {
+                this.spawnWalls(walls, difficulty);
+                this.lastWallSpawn = currentTime;
+            }
         }
+
+        // Spawn rings with paths - skip if noAllyRings flag is set
+        if (!noAllyRings) {
+            const ringInterval = Math.max(800, CONFIG.RING_SPAWN_INTERVAL - difficulty * 150);
+            if (currentTime - this.lastRingSpawn >= ringInterval) {
+                this.spawnRingPattern(rings, difficulty, allyCount);
+                this.lastRingSpawn = currentTime;
+            }
+        }
+    }
+
+    // Spawn walls in 1-2 of 3 lanes (never all 3)
+    spawnWalls(walls, difficulty) {
+        const availableLanes = [0, 1, 2];
+
+        // Avoid spawning in the same lanes as last time (for variety)
+        const preferredLanes = availableLanes.filter(l => !this.lastWallLanes.includes(l));
+
+        // 40% chance of 2 walls, 60% chance of 1 wall
+        const wallCount = Math.random() > 0.6 ? 2 : 1;
+        const selectedLanes = [];
+
+        for (let i = 0; i < wallCount; i++) {
+            const sourceArray = preferredLanes.length > 0 ? preferredLanes : availableLanes;
+            const idx = Math.floor(Math.random() * sourceArray.length);
+            const lane = sourceArray.splice(idx, 1)[0];
+
+            // Also remove from preferredLanes if it was there
+            const prefIdx = preferredLanes.indexOf(lane);
+            if (prefIdx > -1) preferredLanes.splice(prefIdx, 1);
+
+            // Remove from availableLanes too
+            const availIdx = availableLanes.indexOf(lane);
+            if (availIdx > -1) availableLanes.splice(availIdx, 1);
+
+            selectedLanes.push(lane);
+        }
+
+        // Create walls in selected lanes
+        selectedLanes.forEach(lane => {
+            const x = Wall.getLaneX(lane);
+            const wall = new Wall(x, -40, lane);
+            walls.push(wall);
+        });
+
+        this.lastWallLanes = selectedLanes;
     }
 
     spawnEnemyWave(enemies, difficulty, allyCount = 0) {
@@ -590,6 +644,8 @@ export class SpawnerSystem {
         this.lastRingSpawn = 0;
         this.lastWaveSpawn = 0;
         this.lastBusSpawn = 0;
+        this.lastWallSpawn = 0;
+        this.lastWallLanes = [];
         this.waveNumber = 1;
         this.enemiesSpawnedInWave = 0;
         this.enemiesPerWave = 5;

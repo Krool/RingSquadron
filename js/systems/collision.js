@@ -157,4 +157,60 @@ export class CollisionSystem {
             }
         }
     }
+
+    // Check bullets vs walls (bullets get destroyed, walls are indestructible)
+    static checkBulletWallCollisions(bullets, walls) {
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            const bullet = bullets[i];
+            if (!bullet.active) continue;
+
+            const bulletBounds = bullet.getBounds();
+
+            for (const wall of walls) {
+                if (!wall.active) continue;
+
+                const wallBounds = wall.getBounds();
+                if (this.checkCollision(bulletBounds, wallBounds)) {
+                    bullet.active = false; // Wall blocks ALL bullets
+                    break;
+                }
+            }
+        }
+    }
+
+    // Check player collision with walls (instant death)
+    static checkPlayerWallCollision(player, walls) {
+        if (!player.active) return false;
+
+        const playerBounds = player.getBounds();
+
+        for (const wall of walls) {
+            if (!wall.active) continue;
+
+            const wallBounds = wall.getBounds();
+            if (this.checkCollision(playerBounds, wallBounds)) {
+                return true; // Player hit wall
+            }
+        }
+        return false;
+    }
+
+    // Check ally collision with walls (allies destroyed)
+    static checkAllyWallCollisions(allies, walls, onHit) {
+        for (const ally of allies) {
+            if (!ally.active) continue;
+
+            const allyBounds = ally.getBounds();
+
+            for (const wall of walls) {
+                if (!wall.active) continue;
+
+                const wallBounds = wall.getBounds();
+                if (this.checkCollision(allyBounds, wallBounds)) {
+                    onHit(ally);
+                    break;
+                }
+            }
+        }
+    }
 }
