@@ -242,9 +242,12 @@ class Game {
             this.redBoxSlowdownTimer = 0;
             this.waveTimer = 0;
             this.walls = [];  // For boost pads
+            this.currentWave = 1;  // Start at wave 1 for Chase mode
+            this.player.allowVerticalMovement = true;  // Enable vertical movement
         } else {
             this.redBox = null;
             this.cargoShips = [];
+            this.player.allowVerticalMovement = false;  // Disable vertical movement
         }
 
         // Apply upgrades to player
@@ -1616,7 +1619,11 @@ class Game {
 
                 if (CollisionSystem.checkAABB(playerBounds, shipBounds)) {
                     if (!this.playerInvincible) {
-                        this.handlePlayerHit(CONFIG.CHASE_MODE.cargoShipDamage);
+                        this.player.takeDamage(CONFIG.CHASE_MODE.cargoShipDamage);
+                        this.audio.playDamage();
+                        this.haptics.playerHit();
+                        this.particles.damageHit(this.player.x, this.player.y);
+                        this.screenFx.shake(8, 0.2);
                     }
                 }
             }

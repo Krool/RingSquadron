@@ -31,6 +31,15 @@ export class Player {
         // Bounds for movement - only horizontal now
         this.minX = this.width / 2 + 10;
         this.maxX = gameWidth - this.width / 2 - 10;
+        this.minY = this.height / 2 + 10;
+        this.maxY = gameHeight - this.height / 2 - 10;
+
+        // Store game dimensions
+        this.gameWidth = gameWidth;
+        this.gameHeight = gameHeight;
+
+        // Flag for vertical movement (Chase mode)
+        this.allowVerticalMovement = false;
     }
 
     update(deltaTime, targetPos, currentTime) {
@@ -52,15 +61,24 @@ export class Player {
             }
         }
 
-        // Only move horizontally - Y is locked at bottom
-        // Ship follows drag position exactly
+        // Move based on mode
         if (targetPos) {
             this.x = targetPos.x;
+
+            // Allow vertical movement in Chase mode
+            if (this.allowVerticalMovement) {
+                this.y = targetPos.y;
+            }
         }
 
-        // Clamp X position to bounds, Y stays fixed
+        // Clamp position to bounds
         this.x = Math.max(this.minX, Math.min(this.maxX, this.x));
-        this.y = this.fixedY;
+
+        if (this.allowVerticalMovement) {
+            this.y = Math.max(this.minY, Math.min(this.maxY, this.y));
+        } else {
+            this.y = this.fixedY;
+        }
 
         // Auto-fire
         if (currentTime - this.lastFireTime >= this.fireRate) {

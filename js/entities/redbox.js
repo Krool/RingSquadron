@@ -67,19 +67,19 @@ export class RedBox {
         const waveMultiplier = 1 + (waveNumber * cfg.redBoxWaveScaling);
         const effectiveGrowthRate = this.baseGrowthRate * waveMultiplier * this.slowdownMultiplier;
 
-        // Move upward (decrease Y)
+        // Move upward (decrease Y) - this grows the red box from bottom
         this.y -= effectiveGrowthRate * dt;
 
-        // Grow taller
-        this.height += effectiveGrowthRate * dt * 0.5;
-
         // Apply limits
-        if (this.height > this.maxHeight) {
-            this.height = this.maxHeight;
+        // Min Y is when red box reaches max height (40% of screen from bottom)
+        const maxHeightY = this.gameHeight - this.maxHeight;
+        if (this.y < maxHeightY) {
+            this.y = maxHeightY;
         }
 
-        if (this.y < this.minY) {
-            this.y = this.minY;
+        // Max Y is the starting position (don't go below)
+        if (this.y > this.initialY) {
+            this.y = this.initialY;
         }
     }
 
@@ -96,16 +96,16 @@ export class RedBox {
         // Reset to starting position (golden boost effect)
         const cfg = CONFIG.CHASE_MODE;
         this.y = cfg.redBoxStartY;
-        this.height = 50;
     }
 
     getBounds() {
-        // Red box fills from bottom
+        // Red box fills from bottom of screen upward
+        // Y represents the TOP edge of the red box
         return {
             x: 0,
             y: this.y,
             width: this.width,
-            height: this.height
+            height: this.gameHeight - this.y
         };
     }
 
@@ -126,43 +126,49 @@ export class RedBox {
 
     draw(renderer) {
         const ctx = renderer.ctx;
-        const bounds = this.getBounds();
+
+        // Red box fills from bottom of screen upward
+        // this.y is the TOP edge, it fills down to gameHeight
+        const topY = this.y;
+        const bottomY = this.gameHeight;
+        const height = bottomY - topY;
 
         // Flash white when hit
         const isFlashing = this.flashTimer > 0;
         const baseColor = isFlashing ? '#ffffff' : '#cc0000';
 
-        // Draw main red box
+        // Draw main red box (from top edge down to bottom of screen)
         ctx.fillStyle = baseColor;
-        ctx.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+        ctx.fillRect(0, topY, this.gameWidth, height);
 
         // Gradient top edge (danger zone)
-        if (!isFlashing) {
-            const gradient = ctx.createLinearGradient(0, bounds.y, 0, bounds.y + 30);
+        if (!isFlashing && height > 0) {
+            const gradientHeight = Math.min(30, height);
+            const gradient = ctx.createLinearGradient(0, topY, 0, topY + gradientHeight);
             gradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');
             gradient.addColorStop(1, 'rgba(204, 0, 0, 0)');
             ctx.fillStyle = gradient;
-            ctx.fillRect(bounds.x, bounds.y, bounds.width, 30);
+            ctx.fillRect(0, topY, this.gameWidth, gradientHeight);
         }
 
         // Danger stripes on top edge
-        if (!isFlashing) {
+        if (!isFlashing && height > 0) {
             ctx.fillStyle = '#ffff00';
             const stripeWidth = 20;
             const stripeHeight = 4;
-            const stripeY = bounds.y + 2;
+            const stripeY = topY + 2;
 
-            for (let x = 0; x < bounds.width; x += stripeWidth * 2) {
+            for (let x = 0; x < this.gameWidth; x += stripeWidth * 2) {
                 ctx.fillRect(x, stripeY, stripeWidth, stripeHeight);
             }
         }
 
-        // Pulsing effect
-        if (this.safetyTimer <= 0) {
+        // Pulsing effect on top edge
+        if (this.safetyTimer <= 0 && height > 0) {
             const pulse = Math.sin(this.playTime / 200) * 0.2 + 0.8;
             ctx.globalAlpha = pulse;
             ctx.fillStyle = '#ff0000';
-            ctx.fillRect(bounds.x, bounds.y, bounds.width, 2);
+            ctx.fillRect(0, topY, this.gameWidth, 2);
             ctx.globalAlpha = 1;
         }
 
@@ -172,7 +178,7 @@ export class RedBox {
             ctx.fillStyle = '#ffffff';
             ctx.font = `${CONFIG.FONT_SIZE_HUD}px ${CONFIG.FONT_FAMILY}`;
             ctx.textAlign = 'center';
-            ctx.fillText(`SAFE: ${secondsLeft}s`, this.gameWidth / 2, bounds.y - 20);
+            ctx.fillText(`SAFE: ${secondsLeft}s`, this.gameWidth / 2, topY - 20);
         }
     }
 }
