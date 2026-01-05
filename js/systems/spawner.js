@@ -53,6 +53,11 @@ export class SpawnerSystem {
 
         // Endless mode scaling
         this.endlessMode = true;
+
+        // Chase mode timers
+        this.lastBoostSpawn = 0;
+        this.lastGoldenBoostSpawn = 0;
+        this.lastCargoShipSpawn = 0;
     }
 
     update(currentTime, enemies, rings, difficulty = 1, allyCount = 0, modeSpawnMult = 1, walls = null, hasWalls = false, noAllyRings = false) {
@@ -675,9 +680,79 @@ export class SpawnerSystem {
         this.ringPatternStep = 0;
         this.pathTime = 0;
         this.currentFormation = 0;
+
+        // Chase mode timers
+        this.lastBoostSpawn = 0;
+        this.lastGoldenBoostSpawn = 0;
+        this.lastCargoShipSpawn = 0;
     }
 
     getDifficulty() {
         return 1 + (this.waveNumber - 1) * 0.3;
+    }
+
+    // ========================================
+    // CHASE MODE SPAWNING
+    // ========================================
+
+    /**
+     * Update Chase mode spawning - boost pads and cargo ships
+     */
+    updateChaseMode(currentTime, walls, cargoShips, waveNumber, difficulty) {
+        const cfg = CONFIG.CHASE_MODE;
+
+        // Spawn regular boost pads
+        if (currentTime - this.lastBoostSpawn >= cfg.boostPadInterval) {
+            this.spawnBoostPad(walls, false);
+            this.lastBoostSpawn = currentTime;
+        }
+
+        // Spawn golden boost pads (rare)
+        if (currentTime - this.lastGoldenBoostSpawn >= cfg.goldenBoostInterval) {
+            if (Math.random() < cfg.goldenBoostChance) {
+                this.spawnBoostPad(walls, true);
+            }
+            this.lastGoldenBoostSpawn = currentTime;
+        }
+
+        // Spawn cargo ships (gets faster each wave)
+        const spawnInterval = Math.max(
+            cfg.cargoShipMinInterval,
+            cfg.cargoShipBaseInterval * (1 - waveNumber * cfg.spawnRateIncrease)
+        );
+
+        if (currentTime - this.lastCargoShipSpawn >= spawnInterval) {
+            this.spawnCargoShip(cargoShips, waveNumber);
+            this.lastCargoShipSpawn = currentTime;
+        }
+    }
+
+    /**
+     * Spawn a boost pad in a random lane
+     */
+    spawnBoostPad(walls, isGolden) {
+        const lane = Math.floor(Math.random() * 3);
+        const laneWidth = this.gameWidth / 3;
+        const x = laneWidth * lane + laneWidth / 2;
+
+        const wallType = isGolden ? 'GOLDEN_BOOST' : 'BOOST';
+        const wall = new Wall(x, -40, lane, wallType);
+        walls.push(wall);
+    }
+
+    /**
+     * Spawn a cargo ship in a random lane
+     */
+    spawnCargoShip(cargoShips, waveNumber) {
+        const lane = Math.floor(Math.random() * 3);
+        const laneWidth = this.gameWidth / 3;
+        const x = laneWidth * lane + laneWidth / 2;
+
+        // Import CargoShip dynamically to avoid circular dependency
+        import('../entities/cargoship.js').then(module => {
+            const CargoShip = module.CargoShip;
+            const ship = new CargoShip(x, lane, waveNumber);
+            cargoShips.push(ship);
+        });
     }
 }

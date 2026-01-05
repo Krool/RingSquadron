@@ -43,6 +43,8 @@ import { EditorUI } from './systems/editorui.js';
 import { CustomLevelManager } from './systems/customlevel.js';
 import { LevelSelectUI } from './systems/levelselect.js';
 import { GameOverUI } from './systems/gameoverui.js';
+import { RedBox } from './entities/redbox.js';
+import { CargoShip } from './entities/cargoship.js';
 
 class Game {
     constructor() {
@@ -108,6 +110,14 @@ class Game {
         this.boss = null;
         this.bossActive = false;
         this.pendingBossBullets = []; // Queue for time-delayed boss bullets
+
+        // Chase mode entities
+        this.redBox = null;
+        this.cargoShips = [];
+        this.playerInvincible = false;
+        this.playerInvincibilityTimer = 0;
+        this.redBoxSlowdownTimer = 0;
+        this.waveTimer = 0;  // Track wave progression in Chase mode
 
         // Timing
         this.lastTime = 0;
@@ -221,6 +231,21 @@ class Game {
         this.combo.reset();
         this.powerUpManager.clear();
         this.gameMode.reset();
+
+        // Initialize Chase mode entities
+        const rules = this.gameMode.getRules();
+        if (rules.isChase) {
+            this.redBox = new RedBox(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+            this.cargoShips = [];
+            this.playerInvincible = false;
+            this.playerInvincibilityTimer = 0;
+            this.redBoxSlowdownTimer = 0;
+            this.waveTimer = 0;
+            this.walls = [];  // For boost pads
+        } else {
+            this.redBox = null;
+            this.cargoShips = [];
+        }
 
         // Apply upgrades to player
         this.shop.applyUpgrades(this.player);
@@ -886,11 +911,63 @@ class Game {
         this.music.updateGameplayIntensity(this.currentWave, this.enemies.length, this.bossActive);
 
         // Update spawner (skip if boss is active)
-        if (!this.bossActive) {
+        const rules = this.gameMode.getRules();
+        if (rules.isChase) {
+            // Chase mode: Update red box and cargo ships
+            if (this.redBox) {
+                const isSlowed = this.redBoxSlowdownTimer > 0;
+                this.redBox.update(dt, this.currentWave, isSlowed);
+
+                if (this.redBoxSlowdownTimer > 0) {
+                    this.redBoxSlowdownTimer -= dt;
+                }
+
+                // Check collision with player
+                if (this.redBox.checkPlayerCollision(this.player)) {
+                    if (!this.playerInvincible && !this.gameMode.isInvincible()) {
+                        this.handlePlayerDeath();
+                    }
+                }
+            }
+
+            // Update cargo ships
+            for (let i = this.cargoShips.length - 1; i >= 0; i--) {
+                const ship = this.cargoShips[i];
+                ship.update(dt, boostedDt, this.player.y);
+
+                // Remove if off screen
+                if (!ship.active || ship.y > CONFIG.GAME_HEIGHT + 100) {
+                    this.cargoShips.splice(i, 1);
+                }
+            }
+
+            // Chase mode spawning
+            this.spawner.updateChaseMode(
+                currentTime,
+                this.walls,
+                this.cargoShips,
+                this.currentWave,
+                this.spawner.getDifficulty()
+            );
+
+            // Update invincibility
+            if (this.playerInvincible) {
+                this.playerInvincibilityTimer -= dt;
+                if (this.playerInvincibilityTimer <= 0) {
+                    this.playerInvincible = false;
+                }
+            }
+
+            // Update wave timer for Chase mode
+            this.waveTimer += dt;
+            if (this.waveTimer >= CONFIG.CHASE_MODE.waveDuration) {
+                this.nextWaveChase();
+            }
+        } else if (!this.bossActive) {
+            // Normal mode spawning
             const difficulty = this.spawner.getDifficulty() * this.gameMode.getDifficultyMultiplier(this.currentWave);
             const allyCount = this.allies.filter(a => a.active).length;
             const spawnRateMult = this.gameMode.getSpawnRateMultiplier();
-            const rules = this.gameMode.getRules();
             this.spawner.update(
                 currentTime,
                 this.enemies,
@@ -1429,16 +1506,45 @@ class Game {
 
                 const boostAmount = wallResult.wall.getBoostAmount();
                 this.player.applyBoost(boostAmount);
-                this.particles.spark(this.player.x, this.player.y, '#44ff44');
-                this.haptics.light();
 
-                // Show speed multiplier
-                const speedMult = this.player.getSpeedMultiplier();
-                this.floatingText.add(this.player.x, this.player.y - 30, `${speedMult.toFixed(1)}x SPEED`, {
-                    color: '#88ff88',
-                    size: 12,
-                    duration: 800
-                });
+                // Golden boost special effects (Chase mode)
+                if (wallResult.wall.typeData.isGolden) {
+                    this.playerInvincible = true;
+                    this.playerInvincibilityTimer = wallResult.wall.typeData.invincibilityDuration;
+
+                    if (this.redBox) {
+                        this.redBox.reset();
+                    }
+
+                    this.particles.explosion(this.player.x, this.player.y, 3, '#ffdd00');
+                    this.screenFx.flash('#ffdd00', 0.5);
+                    this.haptics.heavy();
+                    this.audio.playPowerUp();
+
+                    this.floatingText.add(this.player.x, this.player.y - 40, 'GOLDEN BOOST!', {
+                        color: '#ffdd00',
+                        size: 16,
+                        duration: 2000
+                    });
+                } else {
+                    // Regular boost
+                    this.particles.spark(this.player.x, this.player.y, '#44ff44');
+                    this.haptics.light();
+
+                    // Push red box down (Chase mode)
+                    if (this.redBox && wallResult.wall.typeData.pushesRedBox) {
+                        this.redBox.y += wallResult.wall.typeData.redBoxPushAmount || 50;
+                        this.redBox.y = Math.min(this.redBox.y, CONFIG.GAME_HEIGHT + 50);
+                    }
+
+                    // Show speed multiplier
+                    const speedMult = this.player.getSpeedMultiplier();
+                    this.floatingText.add(this.player.x, this.player.y - 30, `${speedMult.toFixed(1)}x SPEED`, {
+                        color: '#88ff88',
+                        size: 12,
+                        duration: 800
+                    });
+                }
             }
 
             // Allies destroyed by blocking walls
@@ -1450,6 +1556,69 @@ class Game {
             });
             if (alliesLost) {
                 this.formation.reassignFormations(this.allies);
+            }
+        }
+
+        // Chase mode collisions
+        const rules = this.gameMode.getRules();
+        if (rules.isChase) {
+            // Player bullets vs cargo ship engines
+            for (let i = this.playerBullets.length - 1; i >= 0; i--) {
+                const bullet = this.playerBullets[i];
+                if (!bullet.active) continue;
+
+                for (const ship of this.cargoShips) {
+                    if (!ship.active || ship.engineDestroyed) continue;
+
+                    const bulletBounds = bullet.getBounds();
+                    const engineBounds = ship.getEngineBounds();
+
+                    if (CollisionSystem.checkAABB(bulletBounds, engineBounds)) {
+                        bullet.active = false;
+                        const destroyed = ship.takeDamage(bullet.damage || 10);
+
+                        if (destroyed) {
+                            this.score += CONFIG.CHASE_MODE.cargoShipScore;
+                            this.audio.playExplosion();
+                            this.particles.explosion(ship.x, ship.y + 30, 1);
+                            this.floatingText.add(ship.x, ship.y, '+50', {
+                                color: '#ffff00',
+                                size: 12
+                            });
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Cargo ships vs red box
+            for (let i = this.cargoShips.length - 1; i >= 0; i--) {
+                const ship = this.cargoShips[i];
+                if (!ship.active) continue;
+
+                if (ship.checkRedBoxCollision(this.redBox)) {
+                    this.cargoShips.splice(i, 1);
+                    this.redBox.takeDamage(1);
+                    this.redBoxSlowdownTimer = CONFIG.CHASE_MODE.redBoxSlowDuration;
+
+                    this.particles.explosion(ship.x, ship.y, 1);
+                    this.screenFx.flash('#ffffff', 0.2);
+                    this.audio.playExplosion();
+                }
+            }
+
+            // Player vs cargo ships
+            for (const ship of this.cargoShips) {
+                if (!ship.active) continue;
+
+                const playerBounds = this.player.getBounds();
+                const shipBounds = ship.getBounds();
+
+                if (CollisionSystem.checkAABB(playerBounds, shipBounds)) {
+                    if (!this.playerInvincible) {
+                        this.handlePlayerHit(CONFIG.CHASE_MODE.cargoShipDamage);
+                    }
+                }
             }
         }
     }
@@ -1745,6 +1914,11 @@ class Game {
         // Draw floating text
         this.floatingText.draw(ctx);
 
+        // Draw red box (Chase mode - lowest layer)
+        if (this.redBox && this.redBox.active) {
+            this.redBox.draw(this.renderer);
+        }
+
         // Draw rings
         for (const ring of this.rings) {
             ring.draw(this.renderer);
@@ -1778,6 +1952,13 @@ class Game {
             this.boss.draw(this.renderer);
         }
 
+        // Draw cargo ships (Chase mode)
+        for (const ship of this.cargoShips) {
+            if (ship.active) {
+                ship.draw(this.renderer);
+            }
+        }
+
         // Draw allies (capped at ALLY_DISPLAY_CAP for performance)
         let drawnAllies = 0;
         for (const ally of this.allies) {
@@ -1797,6 +1978,16 @@ class Game {
             ctx.beginPath();
             ctx.arc(this.player.x, this.player.y, 25, 0, Math.PI * 2);
             ctx.stroke();
+        }
+
+        // Draw invincibility effect (Chase mode)
+        if (this.playerInvincible) {
+            ctx.strokeStyle = '#ffdd00';
+            ctx.lineWidth = 3;
+            ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 100) * 0.3;
+            const bounds = this.player.getBounds();
+            ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+            ctx.globalAlpha = 1;
         }
 
         // Draw ASCII explosions (legacy, on top of particles)
@@ -1876,6 +2067,45 @@ class Game {
             ctx.fillText(`${effect.data.char} ${effect.data.name}: ${seconds}s`, 10, y);
             y -= 15;
         });
+    }
+
+    // Chase mode wave progression
+    nextWaveChase() {
+        this.waveTimer = 0;
+        this.currentWave++;
+
+        // Check for victory
+        const rules = this.gameMode.getRules();
+        if (this.currentWave > rules.waves) {
+            this.handleVictory();
+            return;
+        }
+
+        // Wave announcement
+        this.waveAnnouncement = `WAVE ${this.currentWave}`;
+        this.waveAnnouncementTimer = 2000;
+        this.haptics.medium();
+        this.audio.playWaveStart();
+    }
+
+    // Chase mode victory
+    handleVictory() {
+        this.state = 'gameover'; // Reuse gameover state but show victory
+        this.audio.playVictory();
+        this.screenFx.flash('#00ff00', 1.0);
+        this.haptics.heavy();
+
+        // Save high score
+        const modeKey = this.gameMode.getCurrentMode();
+        const isNewHigh = this.save.addHighScore(modeKey, this.score, this.currentWave, Math.floor(this.playTime));
+        if (isNewHigh) {
+            this.isNewLevelHighScore = true;
+        }
+        this.saveProgress();
+
+        // Show victory message
+        this.waveAnnouncement = 'VICTORY!';
+        this.waveAnnouncementTimer = 5000;
     }
 }
 

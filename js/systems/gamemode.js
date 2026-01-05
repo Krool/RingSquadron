@@ -2,16 +2,21 @@
 import { CONFIG } from '../utils/config.js';
 
 export const GAME_MODES = {
-    ENDLESS: {
-        name: 'Endless',
-        description: 'Survive as long as possible',
-        icon: '~',
+    CHASE: {
+        name: 'Chase',
+        description: 'Outrun the rising death! (12 waves)',
+        icon: '▲',
         rules: {
-            waves: Infinity,
-            lives: 1,
-            goldMultiplier: 1,
-            difficultyRamp: 'standard',
-            bossEvery: 5
+            waves: 12,              // Finite waves
+            lives: 1,               // One death = game over
+            goldMultiplier: 0,      // No gold in this mode
+            difficultyRamp: 'wave', // Custom wave-based scaling
+            bossEvery: 0,           // No bosses
+            hasWalls: true,         // Boost pads use wall system
+            noAllyRings: true,      // No rings
+            noShop: true,           // No shop
+            isChase: true,          // Flag for Chase-specific logic
+            canWin: true            // Victory possible
         }
     },
     CAMPAIGN: {
@@ -75,7 +80,7 @@ export const GAME_MODES = {
 
 export class GameModeManager {
     constructor() {
-        this.currentMode = 'ENDLESS';
+        this.currentMode = 'CHASE';
         this.modeData = null;
         this.waveNumber = 1;
         this.livesRemaining = 1;
@@ -418,7 +423,7 @@ export class ModeSelectUI {
     // Get mode-specific color
     getModeColor(modeKey) {
         const colors = {
-            ENDLESS: '#00ff88',
+            CHASE: '#ff3333',       // Red for danger
             CAMPAIGN: '#ffdd00',
             WALL: '#888899',
             EDITOR: '#ff8800',

@@ -42,7 +42,9 @@ export const WALL_TYPES = {
         destructible: false,
         pushable: false,
         boosts: true,
-        boostAmount: 1.5 // Boost level added (stacks up to 5)
+        boostAmount: 1.5, // Boost level added (stacks up to 5)
+        pushesRedBox: true,
+        redBoxPushAmount: 50
     },
     ENEMY_PASS: {
         name: 'Enemy Pass',
@@ -100,6 +102,24 @@ export const WALL_TYPES = {
         destructible: false,
         pushable: true,
         boosts: false
+    },
+    GOLDEN_BOOST: {
+        name: 'Golden Boost',
+        color: '#aa7700',
+        stripeColor: '#ffdd00',
+        text: '★GOLD★',
+        textColor: '#ffff88',
+        blocksPlayerBullets: false,
+        blocksEnemyBullets: false,
+        blocksPlayer: false,
+        blocksEnemies: false,
+        destructible: false,
+        pushable: false,
+        boosts: true,
+        boostAmount: 3,  // Much stronger boost
+        isGolden: true,
+        invincibilityDuration: 3000,  // 3 seconds
+        resetsRedBox: true
     }
 };
 

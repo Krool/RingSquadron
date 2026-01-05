@@ -208,5 +208,44 @@ export const CONFIG = {
     // ========================================
     // CARRIER ENEMY
     // ========================================
-    CARRIER_SPAWN_COOLDOWN: 5000     // ms between carrier drone spawns
+    CARRIER_SPAWN_COOLDOWN: 5000,    // ms between carrier drone spawns
+
+    // ========================================
+    // CHASE MODE SETTINGS
+    // ========================================
+    CHASE_MODE: {
+        // Wave Configuration
+        totalWaves: 12,                 // 12 waves = ~2-3 mins
+        waveDuration: 12000,            // 12 seconds per wave
+
+        // Red Box
+        redBoxStartY: 750,              // Below screen
+        redBoxSafetyTime: 5000,         // 5s grace period
+        redBoxBaseGrowthRate: 0.08,     // Base pixels/frame
+        redBoxWaveScaling: 0.015,       // +1.5% speed per wave
+        redBoxMaxHeight: 280,           // 40% of screen
+        redBoxMinY: 500,                // Don't go below this
+        redBoxDamageSlowdown: 0.5,      // 50% speed when hit
+        redBoxSlowDuration: 2000,       // 2s slowdown
+        redBoxFlashDuration: 300,       // Visual flash
+        redBoxPushAmount: 50,           // Pixels to push down on regular boost
+
+        // Cargo Ships
+        cargoShipBaseInterval: 5000,    // Base spawn interval
+        cargoShipMinInterval: 2000,     // Min (late waves)
+        cargoShipEngineHealth: 30,      // Base health
+        cargoShipDamage: 25,            // Collision damage
+        cargoShipDriftSpeed: 0.8,       // Drift down speed
+        cargoShipLockY: 100,            // Lock position
+        cargoShipScore: 50,             // Score reward
+        cargoShipHealthPerWave: 3,      // +3 HP per wave
+
+        // Boost Pads
+        boostPadInterval: 4000,         // Regular every 4s
+        goldenBoostInterval: 25000,     // Golden every 25s
+        goldenBoostChance: 0.6,         // 60% when timer up
+
+        // Difficulty
+        spawnRateIncrease: 0.08         // -8% interval per wave
+    }
 };
