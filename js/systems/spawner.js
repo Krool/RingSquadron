@@ -58,6 +58,7 @@ export class SpawnerSystem {
         this.lastBoostSpawn = 0;
         this.lastGoldenBoostSpawn = 0;
         this.lastCargoShipSpawn = 0;
+        this.lastEnemySpawn = 0;
     }
 
     update(currentTime, enemies, rings, difficulty = 1, allyCount = 0, modeSpawnMult = 1, walls = null, hasWalls = false, noAllyRings = false) {
@@ -685,6 +686,7 @@ export class SpawnerSystem {
         this.lastBoostSpawn = 0;
         this.lastGoldenBoostSpawn = 0;
         this.lastCargoShipSpawn = 0;
+        this.lastEnemySpawn = 0;
     }
 
     getDifficulty() {
@@ -696,9 +698,9 @@ export class SpawnerSystem {
     // ========================================
 
     /**
-     * Update Chase mode spawning - boost pads and cargo ships
+     * Update Chase mode spawning - boost pads, cargo ships, and enemies
      */
-    updateChaseMode(currentTime, walls, cargoShips, waveNumber, difficulty) {
+    updateChaseMode(currentTime, walls, cargoShips, enemies, waveNumber, difficulty) {
         const cfg = CONFIG.CHASE_MODE;
 
         // Spawn regular boost pads
@@ -716,14 +718,25 @@ export class SpawnerSystem {
         }
 
         // Spawn cargo ships (gets faster each wave)
-        const spawnInterval = Math.max(
+        const cargoShipInterval = Math.max(
             cfg.cargoShipMinInterval,
             cfg.cargoShipBaseInterval * (1 - waveNumber * cfg.spawnRateIncrease)
         );
 
-        if (currentTime - this.lastCargoShipSpawn >= spawnInterval) {
+        if (currentTime - this.lastCargoShipSpawn >= cargoShipInterval) {
             this.spawnCargoShip(cargoShips, waveNumber);
             this.lastCargoShipSpawn = currentTime;
+        }
+
+        // Spawn regular enemies (gets faster each wave)
+        const enemyInterval = Math.max(
+            1500, // Min 1.5 seconds
+            3000 * (1 - waveNumber * 0.05) // Start at 3s, gets faster
+        );
+
+        if (currentTime - this.lastEnemySpawn >= enemyInterval) {
+            this.spawnChaseEnemy(enemies, waveNumber, difficulty);
+            this.lastEnemySpawn = currentTime;
         }
     }
 
@@ -753,6 +766,49 @@ export class SpawnerSystem {
             const CargoShip = module.CargoShip;
             const ship = new CargoShip(x, lane, waveNumber);
             cargoShips.push(ship);
+        });
+    }
+
+    /**
+     * Spawn a regular enemy in Chase mode
+     */
+    spawnChaseEnemy(enemies, waveNumber, difficulty) {
+        // Random X position
+        const x = Math.random() * (this.gameWidth - 80) + 40;
+
+        // Choose enemy type - favor simpler enemies in Chase mode
+        const rand = Math.random();
+        let type;
+
+        if (waveNumber < 3) {
+            // Early waves: mostly BASIC and FAST
+            type = rand < 0.7 ? 'BASIC' : 'FAST';
+        } else if (waveNumber < 6) {
+            // Mid waves: add TANK and BOMBER
+            if (rand < 0.4) type = 'BASIC';
+            else if (rand < 0.7) type = 'FAST';
+            else if (rand < 0.85) type = 'TANK';
+            else type = 'BOMBER';
+        } else {
+            // Late waves: all types
+            if (rand < 0.3) type = 'BASIC';
+            else if (rand < 0.5) type = 'FAST';
+            else if (rand < 0.65) type = 'TANK';
+            else if (rand < 0.8) type = 'BOMBER';
+            else if (rand < 0.9) type = 'SNIPER';
+            else type = 'SWARM';
+        }
+
+        // Import Enemy dynamically to avoid circular dependency
+        import('../entities/enemy.js').then(module => {
+            const Enemy = module.Enemy;
+            const enemy = new Enemy(x, -50, type);
+
+            // Scale with difficulty and wave
+            enemy.health *= (1 + difficulty * 0.2 + waveNumber * 0.1);
+            enemy.maxHealth = enemy.health;
+
+            enemies.push(enemy);
         });
     }
 }

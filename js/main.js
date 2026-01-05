@@ -919,7 +919,7 @@ class Game {
             // Chase mode: Update red box and cargo ships
             if (this.redBox) {
                 const isSlowed = this.redBoxSlowdownTimer > 0;
-                this.redBox.update(dt, this.currentWave, isSlowed);
+                this.redBox.update(dt, this.currentWave, isSlowed, this.player.boostLevel);
 
                 if (this.redBoxSlowdownTimer > 0) {
                     this.redBoxSlowdownTimer -= dt;
@@ -956,6 +956,7 @@ class Game {
                 currentTime,
                 this.walls,
                 this.cargoShips,
+                this.enemies,
                 this.currentWave,
                 this.spawner.getDifficulty()
             );
@@ -1513,6 +1514,7 @@ class Game {
             } else if (wallResult.boost && wallResult.wall && !wallResult.wall.boostCollected) {
                 // Apply boost effect - stacks! Only trigger once per wall.
                 wallResult.wall.boostCollected = true;
+                wallResult.wall.active = false; // Despawn boost pad after collection
 
                 const boostAmount = wallResult.wall.getBoostAmount();
                 this.player.applyBoost(boostAmount);
@@ -1537,15 +1539,9 @@ class Game {
                         duration: 2000
                     });
                 } else {
-                    // Regular boost
+                    // Regular boost - red box shrinks gradually based on player boost level
                     this.particles.spark(this.player.x, this.player.y, '#44ff44');
                     this.haptics.light();
-
-                    // Push red box down (Chase mode)
-                    if (this.redBox && wallResult.wall.typeData.pushesRedBox) {
-                        this.redBox.y += wallResult.wall.typeData.redBoxPushAmount || 50;
-                        this.redBox.y = Math.min(this.redBox.y, CONFIG.GAME_HEIGHT + 50);
-                    }
 
                     // Show speed multiplier
                     const speedMult = this.player.getSpeedMultiplier();
@@ -1614,6 +1610,24 @@ class Game {
                     this.particles.explosion(ship.x, ship.y, 1);
                     this.screenFx.flash('#ffffff', 0.2);
                     this.audio.playExplosion();
+                }
+            }
+
+            // Boost pads vs red box - destroy pads that touch red box
+            if (this.redBox) {
+                for (let i = this.walls.length - 1; i >= 0; i--) {
+                    const wall = this.walls[i];
+                    if (!wall.active) continue;
+                    if (!wall.typeData.boosts) continue; // Only check boost pads
+
+                    const wallBounds = wall.getBounds();
+                    const boxBounds = this.redBox.getBounds();
+
+                    // Check if wall touches red box
+                    if (wallBounds.y + wallBounds.height >= boxBounds.y) {
+                        this.walls.splice(i, 1);
+                        this.particles.spark(wall.x, boxBounds.y, '#ff4444');
+                    }
                 }
             }
 

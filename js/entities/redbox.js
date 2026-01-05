@@ -39,7 +39,7 @@ export class RedBox {
         this.playTime = 0;
     }
 
-    update(deltaTime, waveNumber, isSlowedDown) {
+    update(deltaTime, waveNumber, isSlowedDown, playerBoostLevel) {
         const cfg = CONFIG.CHASE_MODE;
         const dt = deltaTime / 16; // Normalize to ~60fps
 
@@ -67,8 +67,15 @@ export class RedBox {
         const waveMultiplier = 1 + (waveNumber * cfg.redBoxWaveScaling);
         const effectiveGrowthRate = this.baseGrowthRate * waveMultiplier * this.slowdownMultiplier;
 
-        // Move upward (decrease Y) - this grows the red box from bottom
-        this.y -= effectiveGrowthRate * dt;
+        // Calculate shrink rate from player boost (negative growth = shrinking)
+        // Each boost level adds 0.15 pixels/frame of shrinkage
+        const boostShrinkRate = playerBoostLevel * 0.15;
+
+        // Net movement: growth - shrink
+        const netRate = effectiveGrowthRate - boostShrinkRate;
+
+        // Move upward (decrease Y) or downward (increase Y) based on net rate
+        this.y -= netRate * dt;
 
         // Apply limits
         // Min Y is when red box reaches max height (40% of screen from bottom)

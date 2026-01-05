@@ -2,8 +2,8 @@
  * Cargo Ship Entity - Chase Mode
  *
  * Upward-flying enemy with destructible engine.
- * Spawns from top, drifts down until visible, locks in place.
- * When engine destroyed, drifts toward red box.
+ * Spawns from top, drifts down continuously reacting to player boost speed.
+ * When engine destroyed, drifts faster toward red box.
  *
  * @module entities/cargoship
  */
@@ -43,6 +43,7 @@ export class CargoShip {
 
     update(deltaTime, boostedDt, playerY) {
         const dt = deltaTime / 16; // Normalize to ~60fps
+        const boostedDtNormalized = boostedDt / 16; // Use boosted delta for movement
 
         // Update flash effect
         if (this.flashTimer > 0) {
@@ -51,8 +52,8 @@ export class CargoShip {
 
         switch (this.state) {
             case 'spawning':
-                // Drift down slowly
-                this.y += this.driftSpeed * dt;
+                // Drift down slowly, reacting to player boost
+                this.y += this.driftSpeed * boostedDtNormalized;
 
                 // Once fully visible, start drifting
                 if (this.y >= 0) {
@@ -61,24 +62,14 @@ export class CargoShip {
                 break;
 
             case 'drifting':
-                // Continue drifting down
-                this.y += this.driftSpeed * dt;
-
-                // Lock in place when reaching lockY
-                if (this.y >= this.lockY) {
-                    this.y = this.lockY;
-                    this.state = 'locked';
-                }
-                break;
-
-            case 'locked':
-                // Stay in place, engine is vulnerable
-                // No movement
+                // Continue drifting down continuously, reacting to player boost
+                this.y += this.driftSpeed * boostedDtNormalized;
+                // No longer lock in place - always drift
                 break;
 
             case 'destroyed':
-                // Drift down toward red box
-                this.y += this.driftSpeed * 1.5 * dt;
+                // Drift down toward red box faster, reacting to player boost
+                this.y += this.driftSpeed * 1.5 * boostedDtNormalized;
                 break;
         }
 
@@ -227,14 +218,6 @@ export class CargoShip {
             ctx.strokeStyle = '#555566';
             ctx.lineWidth = 2;
             ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
-        }
-
-        // State indicator (debug - optional)
-        if (this.state === 'locked' && !this.engineDestroyed) {
-            ctx.fillStyle = '#ffff00';
-            ctx.font = `8px ${CONFIG.FONT_FAMILY}`;
-            ctx.textAlign = 'center';
-            ctx.fillText('▼', this.x, bounds.y - 5);
         }
     }
 }
