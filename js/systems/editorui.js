@@ -230,12 +230,22 @@ export class EditorUI {
             return 'clear';
         }
 
-        // Page navigation buttons at y=430 and y=458
-        if (y >= 430 && y < 452) {
+        // Settings toggles
+        if (y >= 445 && y < 465) {
+            this.editor.toggleChaseMode();
+            return 'toggle_chase';
+        }
+        if (y >= 470 && y < 490) {
+            this.editor.toggleVerticalMovement();
+            return 'toggle_vertical';
+        }
+
+        // Page navigation buttons
+        if (y >= 500 && y < 522) {
             this.pageUp();
             return 'page_up';
         }
-        if (y >= 458 && y < 480) {
+        if (y >= 528 && y < 550) {
             this.pageDown();
             return 'page_down';
         }
@@ -717,16 +727,29 @@ export class EditorUI {
         ctx.fillText(`R:${stats.rings} E:${stats.enemies}`, centerX, 405);
         ctx.fillText(`W:${stats.walls} G:${stats.gates}`, centerX, 417);
 
+        // Level settings toggles
+        ctx.fillStyle = '#666666';
+        ctx.font = `7px ${CONFIG.FONT_FAMILY}`;
+        ctx.fillText('SETTINGS', centerX, 437);
+
+        // Chase mode toggle
+        const chaseColor = this.editor.chaseMode ? '#ff3333' : '#555555';
+        this.drawButton(ctx, x + 3, 445, sw - 6, 20, this.editor.chaseMode ? '✓Chase' : 'Chase', chaseColor);
+
+        // Vertical movement toggle
+        const vertColor = this.editor.allowVerticalMovement ? '#44ff88' : '#555555';
+        this.drawButton(ctx, x + 3, 470, sw - 6, 20, this.editor.allowVerticalMovement ? '✓Vert' : 'Vert', vertColor);
+
         // Page navigation buttons
-        this.drawButton(ctx, x + 3, 430, sw - 6, 22, '↑ Page', '#446688');
-        this.drawButton(ctx, x + 3, 458, sw - 6, 22, '↓ Page', '#446688');
+        this.drawButton(ctx, x + 3, 500, sw - 6, 22, '↑ Page', '#446688');
+        this.drawButton(ctx, x + 3, 528, sw - 6, 22, '↓ Page', '#446688');
 
         // Current page indicator
         const currentPage = Math.floor(this.editor.scrollOffset / this.pageHeight) + 1;
         const maxPage = Math.ceil(this.editor.maxWaveHeight / this.pageHeight);
         ctx.fillStyle = '#666666';
         ctx.font = `8px ${CONFIG.FONT_FAMILY}`;
-        ctx.fillText(`Page ${currentPage}/${maxPage}`, centerX, 495);
+        ctx.fillText(`Page ${currentPage}/${maxPage}`, centerX, 565);
 
         // Exit button
         this.drawButton(ctx, x + 3, CONFIG.GAME_HEIGHT - this.toolbarHeight - 40, sw - 6, 28, 'EXIT', '#aa3333');

@@ -21,6 +21,10 @@ export class EditorSystem {
         this.currentWaveIndex = 0;
         this.isDirty = false;  // Track unsaved changes
 
+        // Level settings
+        this.chaseMode = false;  // Enable Chase mode (red box)
+        this.allowVerticalMovement = false;  // Allow player Y dragging
+
         // Tool selection
         this.selectedTool = 'ring';  // 'ring', 'enemy', 'wall', 'gate_x2', 'gate_div', 'erase'
         this.selectedEnemyType = 'BASIC';
@@ -36,7 +40,7 @@ export class EditorSystem {
         this.maxWaveHeight = 2000;  // Maximum spawn height per wave
 
         // Available enemy types for the editor
-        this.enemyTypes = ['BASIC', 'FAST', 'TANK', 'SNIPER', 'BOMBER', 'SWARM', 'SHIELD'];
+        this.enemyTypes = ['BASIC', 'FAST', 'TANK', 'SNIPER', 'BOMBER', 'SWARM', 'SHIELD', 'CARGO_SHIP'];
 
         // Available wall types
         this.wallTypes = Object.keys(WALL_TYPES);
@@ -261,6 +265,20 @@ export class EditorSystem {
         this.isDirty = true;
     }
 
+    // Toggle Chase mode
+    toggleChaseMode() {
+        this.chaseMode = !this.chaseMode;
+        this.isDirty = true;
+        return this.chaseMode;
+    }
+
+    // Toggle vertical movement
+    toggleVerticalMovement() {
+        this.allowVerticalMovement = !this.allowVerticalMovement;
+        this.isDirty = true;
+        return this.allowVerticalMovement;
+    }
+
     // Serialize level for storage
     serialize() {
         return {
@@ -272,6 +290,10 @@ export class EditorSystem {
                 walls: [...wave.walls],
                 gates: [...wave.gates]
             })),
+            settings: {
+                chaseMode: this.chaseMode,
+                allowVerticalMovement: this.allowVerticalMovement
+            },
             createdAt: Date.now()
         };
     }
@@ -288,6 +310,11 @@ export class EditorSystem {
             walls: wave.walls || [],
             gates: wave.gates || []
         }));
+
+        // Load level settings (with defaults for backward compatibility)
+        this.chaseMode = data.settings?.chaseMode || false;
+        this.allowVerticalMovement = data.settings?.allowVerticalMovement || false;
+
         this.currentWaveIndex = 0;
         this.isDirty = false;
         return true;
