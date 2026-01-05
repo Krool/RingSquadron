@@ -799,16 +799,13 @@ export class SpawnerSystem {
             else type = 'SWARM';
         }
 
-        // Import Enemy dynamically to avoid circular dependency
-        import('../entities/enemy.js').then(module => {
-            const Enemy = module.Enemy;
-            const enemy = new Enemy(x, -50, type);
+        // Create enemy (Enemy already imported at top of file)
+        const enemy = new Enemy(x, -50, type);
 
-            // Scale with difficulty and wave
-            enemy.health *= (1 + difficulty * 0.2 + waveNumber * 0.1);
-            enemy.maxHealth = enemy.health;
+        // Scale with difficulty and wave
+        enemy.health *= (1 + difficulty * 0.2 + waveNumber * 0.1);
+        enemy.maxHealth = enemy.health;
 
-            enemies.push(enemy);
-        });
+        enemies.push(enemy);
     }
 }

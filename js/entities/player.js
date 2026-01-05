@@ -21,7 +21,7 @@ export class Player {
         // Boost system - affects game scroll speed
         this.boostLevel = 0; // Current boost level (stacks)
         this.maxBoostLevel = 5; // Maximum stacking
-        this.boostDecayRate = 0.3; // How fast boost decays per second
+        this.boostDecayRate = 1.2; // How fast boost decays per second (4x faster = 75% shorter duration)
 
         const size = getSpriteSize(this.sprite);
         // Adjusted for smaller font (8px)

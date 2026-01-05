@@ -371,8 +371,9 @@ class Game {
         // Apply time scale from screen effects
         const scaledDelta = deltaTime * this.screenFx.getTimeScale();
 
-        // Always update stars and screen effects
-        this.renderer.updateStars(scaledDelta);
+        // Always update stars and screen effects (use player boost speed)
+        const starSpeedMultiplier = this.player ? this.player.getSpeedMultiplier() : 1.0;
+        this.renderer.updateStars(scaledDelta, starSpeedMultiplier);
         this.screenFx.update(scaledDelta);
         this.particles.update(scaledDelta);
         this.combo.update(scaledDelta);

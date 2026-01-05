@@ -44,11 +44,11 @@ export class Renderer {
         this.charHeight = CONFIG.FONT_SIZE * 1.2;
     }
 
-    updateStars(deltaTime) {
+    updateStars(deltaTime, speedMultiplier = 1.0) {
         const dt = deltaTime / 16;
         for (const layer of this.stars) {
             for (const star of layer) {
-                star.y += star.speed * dt;
+                star.y += star.speed * dt * speedMultiplier;
                 star.twinkle += 0.02 * dt;
 
                 // Wrap around - use modulo to prevent bunching

@@ -119,12 +119,11 @@ export class CargoShip {
 
     checkRedBoxCollision(redBox) {
         if (!redBox || !redBox.active) return false;
-        if (this.state !== 'destroyed') return false;
 
         const shipBounds = this.getBounds();
         const boxBounds = redBox.getBounds();
 
-        // Check if ship touches red box
+        // Check if ship touches red box (regardless of engine state)
         return (
             shipBounds.y + shipBounds.height >= boxBounds.y
         );
