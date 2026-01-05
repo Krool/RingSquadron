@@ -219,12 +219,12 @@ export const CONFIG = {
         waveDuration: 12000,            // 12 seconds per wave
 
         // Red Box
-        redBoxStartY: 750,              // Below screen
+        redBoxStartY: 650,              // Start with small visible portion at bottom
         redBoxSafetyTime: 5000,         // 5s grace period
         redBoxBaseGrowthRate: 0.08,     // Base pixels/frame
         redBoxWaveScaling: 0.015,       // +1.5% speed per wave
         redBoxMaxHeight: 280,           // 40% of screen
-        redBoxMinY: 500,                // Don't go below this
+        redBoxMinY: 420,                // Don't go above this (700-280=420)
         redBoxDamageSlowdown: 0.5,      // 50% speed when hit
         redBoxSlowDuration: 2000,       // 2s slowdown
         redBoxFlashDuration: 300,       // Visual flash
