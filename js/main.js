@@ -928,7 +928,14 @@ class Game {
                 // Check collision with player
                 if (this.redBox.checkPlayerCollision(this.player)) {
                     if (!this.playerInvincible && !this.gameMode.isInvincible()) {
-                        this.handlePlayerDeath();
+                        // Player dies from red box
+                        this.player.health = 0;
+                        this.player.active = false;
+                        this.audio.playExplosion();
+                        this.particles.explosion(this.player.x, this.player.y, 2);
+                        this.screenFx.shake(20, 0.5);
+                        this.screenFx.flash('#ff0000', 0.4, 0.05);
+                        this.haptics.heavy();
                     }
                 }
             }
