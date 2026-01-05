@@ -219,7 +219,7 @@ export const CONFIG = {
         waveDuration: 12000,            // 12 seconds per wave
 
         // Red Box
-        redBoxStartY: 500,              // Start with larger visible portion for testing
+        redBoxStartY: 680,              // Start barely visible (20px at bottom)
         redBoxSafetyTime: 5000,         // 5s grace period
         redBoxBaseGrowthRate: 0.08,     // Base pixels/frame
         redBoxWaveScaling: 0.015,       // +1.5% speed per wave

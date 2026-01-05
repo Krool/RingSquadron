@@ -133,13 +133,6 @@ export class RedBox {
         const bottomY = this.gameHeight;
         const height = bottomY - topY;
 
-        // Debug: log first few times to verify it's being called
-        if (!this.drawCount) this.drawCount = 0;
-        if (this.drawCount < 3) {
-            console.log(`RedBox draw called: topY=${topY}, bottomY=${bottomY}, height=${height}`);
-            this.drawCount++;
-        }
-
         // Flash white when hit
         const isFlashing = this.flashTimer > 0;
         const baseColor = isFlashing ? '#ffffff' : '#cc0000';
