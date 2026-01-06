@@ -68,6 +68,7 @@ export class SpawnerSystem {
         this.lastPushWallSpawn = 0;
         this.cratesSpawned = 0;
         this.spreadShotSpawned = false;
+        this.pushWallLane = 1;  // Start with center lane, rotate 1->0->2->1...
     }
 
     update(currentTime, enemies, rings, difficulty = 1, allyCount = 0, modeSpawnMult = 1, walls = null, hasWalls = false, noAllyRings = false) {
@@ -705,6 +706,7 @@ export class SpawnerSystem {
         this.lastPushWallSpawn = 0;
         this.cratesSpawned = 0;
         this.spreadShotSpawned = false;
+        this.pushWallLane = 1;  // Start with center lane, rotate 1->0->2->1...
     }
 
     getDifficulty() {
@@ -844,25 +846,26 @@ export class SpawnerSystem {
             this.swarmSpawnTimer = 0;
         }
 
-        // Spawn wingmen powerups throughout first 10 seconds (15 total)
+        // Spawn wingmen powerups throughout first 10 seconds (17 total)
+        // Tighter distribution around center (35%-65% of screen width)
         const wingmanSchedule = [
             { time: 0, x: 0.5, hits: 5 },      // Center
-            { time: 500, x: 0.3, hits: 3 },    // Left
-            { time: 1000, x: 0.7, hits: 3 },   // Right
-            { time: 1500, x: 0.4, hits: 4 },   // Left-center
-            { time: 2000, x: 0.6, hits: 4 },   // Right-center
-            { time: 2500, x: 0.2, hits: 5 },   // Far left
-            { time: 3000, x: 0.8, hits: 5 },   // Far right
+            { time: 500, x: 0.42, hits: 3 },   // Left-center
+            { time: 1000, x: 0.58, hits: 3 },  // Right-center
+            { time: 1500, x: 0.46, hits: 4 },  // Left-center
+            { time: 2000, x: 0.54, hits: 4 },  // Right-center
+            { time: 2500, x: 0.38, hits: 5 },  // Left
+            { time: 3000, x: 0.62, hits: 5 },  // Right
             { time: 3500, x: 0.5, hits: 6 },   // Center
-            { time: 4000, x: 0.35, hits: 4 },  // Left
-            { time: 4500, x: 0.65, hits: 4 },  // Right
-            { time: 5000, x: 0.25, hits: 5 },  // Left
-            { time: 5500, x: 0.75, hits: 5 },  // Right
+            { time: 4000, x: 0.44, hits: 4 },  // Left-center
+            { time: 4500, x: 0.56, hits: 4 },  // Right-center
+            { time: 5000, x: 0.40, hits: 5 },  // Left
+            { time: 5500, x: 0.60, hits: 5 },  // Right
             { time: 6000, x: 0.5, hits: 7 },   // Center
-            { time: 7000, x: 0.4, hits: 6 },   // Left-center
-            { time: 8000, x: 0.6, hits: 6 },   // Right-center
-            { time: 9000, x: 0.3, hits: 8 },   // Left
-            { time: 10000, x: 0.7, hits: 8 }   // Right
+            { time: 7000, x: 0.48, hits: 6 },  // Left-center
+            { time: 8000, x: 0.52, hits: 6 },  // Right-center
+            { time: 9000, x: 0.36, hits: 8 },  // Left
+            { time: 10000, x: 0.64, hits: 8 }  // Right
         ];
 
         for (let i = 0; i < wingmanSchedule.length; i++) {
@@ -874,17 +877,22 @@ export class SpawnerSystem {
             }
         }
 
-        // Push walls every 8 seconds
+        // Push walls every 8 seconds, rotating through lanes (center, left, right)
         const pushWallInterval = 8000;
         const timeSinceLastPushWall = playTime - this.lastPushWallSpawn;
         if (this.lastPushWallSpawn === 0 && playTime >= 3000) {
-            // First push wall at 3s
-            this.spawnPushWall(pushWalls, 15);
+            // First push wall at 3s in center lane
+            this.spawnPushWall(pushWalls, 15, this.pushWallLane);
             this.lastPushWallSpawn = playTime;
+            // Rotate lane: 1->0->2->1...
+            this.pushWallLane = (this.pushWallLane === 1) ? 0 : (this.pushWallLane === 0) ? 2 : 1;
         } else if (timeSinceLastPushWall >= pushWallInterval && this.lastPushWallSpawn > 0) {
-            // Subsequent push walls every 8s
-            this.spawnPushWall(pushWalls, 15 + Math.floor((playTime - 3000) / pushWallInterval) * 5);
+            // Subsequent push walls every 8s, rotating lanes
+            const wallCount = Math.floor((playTime - 3000) / pushWallInterval);
+            this.spawnPushWall(pushWalls, 15 + wallCount * 5, this.pushWallLane);
             this.lastPushWallSpawn = playTime;
+            // Rotate lane: 1->0->2->1...
+            this.pushWallLane = (this.pushWallLane === 1) ? 0 : (this.pushWallLane === 0) ? 2 : 1;
         }
 
         // Spawn first boss (T=12000ms, 50 hits)
@@ -966,11 +974,11 @@ export class SpawnerSystem {
     }
 
     /**
-     * Spawn a hit-counter push wall
+     * Spawn a hit-counter push wall in specified lane
      */
-    spawnPushWall(pushWalls, hitsRequired) {
-        const lane = 1;  // Center lane
-        const x = this.gameWidth / 2;
+    spawnPushWall(pushWalls, hitsRequired, lane) {
+        const laneWidth = this.gameWidth / 3;
+        const x = laneWidth * lane + laneWidth / 2;
         const wall = new Wall(x, -40, lane, 'HIT_COUNTER_PUSH', hitsRequired);
         pushWalls.push(wall);
     }
