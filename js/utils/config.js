@@ -283,7 +283,7 @@ export const CONFIG = {
     // ========================================
     CHASE_SWARM_MODE: {
         // Red Box (from Chase mode)
-        redBoxStartY: 500,               // Start higher (500 vs 680) for more spawn space
+        redBoxStartY: 680,               // Start near bottom (680 = 20px visible initially)
         redBoxSafetyTime: 5000,          // 5s grace period
         redBoxBaseGrowthRate: 0.08,
         redBoxWaveScaling: 0.015,
