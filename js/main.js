@@ -1807,18 +1807,25 @@ class Game {
                 }
             }
 
-            // Player bullets vs push walls (count hits)
+            // Player bullets vs push walls (count hits and push)
             for (const bullet of this.playerBullets) {
                 if (!bullet.active) continue;
 
                 for (const wall of this.pushWalls) {
-                    if (!wall.active || wall.triggered) continue;
+                    if (!wall.active) continue;
                     if (CollisionSystem.checkAABB(bullet.getBounds(), wall.getBounds())) {
                         bullet.active = false;
-                        const triggered = wall.registerBulletHit();
-                        if (triggered) {
-                            this.audio.playPowerUp();
-                            this.screenFx.shake(5, 0.2);
+
+                        if (!wall.triggered) {
+                            // Count hits until triggered
+                            const triggered = wall.registerBulletHit();
+                            if (triggered) {
+                                this.audio.playPowerUp();
+                                this.screenFx.shake(5, 0.2);
+                            }
+                        } else {
+                            // After triggered, continue pushing
+                            wall.push(2);
                         }
                         break;
                     }

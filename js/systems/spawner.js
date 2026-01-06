@@ -866,30 +866,30 @@ export class SpawnerSystem {
             this.cratesSpawned++;
         }
 
-        // Spawn first boss (T=5000ms, 100 hits)
+        // Spawn first boss (T=5000ms, 50 hits)
         if (playTime >= 5000 && this.bossIndex === 0) {
-            this.spawnSwarmBoss(swarmBosses, 100);
+            this.spawnSwarmBoss(swarmBosses, 50);
             this.bossIndex++;
             this.lastBossSpawn = playTime;
         }
 
         // Spawn spread + wingman crates (T=6000ms)
         if (playTime >= 6000 && this.cratesSpawned === 3) {
-            this.spawnPowerupCrate(crates, this.gameWidth * 0.25, 'spreadshot', 100);
+            this.spawnPowerupCrate(crates, this.gameWidth * 0.25, 'spreadshot', 50);
             this.spawnPowerupCrate(crates, this.gameWidth * 0.75, 'wingman', 20);
             this.cratesSpawned += 2;
         }
 
-        // Spawn second boss (T=15000ms, 500 hits)
+        // Spawn second boss (T=15000ms, 250 hits)
         if (playTime >= 15000 && this.bossIndex === 1) {
-            this.spawnSwarmBoss(swarmBosses, 500);
+            this.spawnSwarmBoss(swarmBosses, 250);
             this.bossIndex++;
             this.lastBossSpawn = playTime;
         }
 
         // Continue spawning bosses exponentially (every 15s after second boss)
         if (this.bossIndex >= 2 && playTime - this.lastBossSpawn >= 15000) {
-            const health = Math.pow(2, this.bossIndex - 1) * 500;  // 1000, 2000, 4000...
+            const health = Math.pow(2, this.bossIndex - 1) * 250;  // 500, 1000, 2000...
             this.spawnSwarmBoss(swarmBosses, health);
             this.bossIndex++;
             this.lastBossSpawn = playTime;
