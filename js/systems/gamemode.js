@@ -240,7 +240,7 @@ export class ModeSelectUI {
         this.hoveredIndex = -1;
         this.pressedIndex = -1;
         this.modes = Object.entries(GAME_MODES);
-        this.modeStartY = 180; // Below the title
+        this.modeStartY = 140; // Below the title
         this.modeHeight = 52;
         this.animTime = 0;
 

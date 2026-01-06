@@ -426,23 +426,12 @@ export class Renderer {
         // Animated title
         this.drawAnimatedTitle(centerX, 55, animTime);
 
-        // Subtitle with pulse
-        const subtitleAlpha = 0.7 + Math.sin(animTime * 2) * 0.2;
-        this.ctx.globalAlpha = subtitleAlpha;
-        this.drawTextFullyCentered('ARCADE SHOOTER', centerX, 90, '#aaaaaa', 10);
-        this.ctx.globalAlpha = 1;
-
-        // Brief instructions
-        this.ctx.globalAlpha = 0.8;
-        this.drawTextFullyCentered('Drag to move  •  Collect rings  •  Destroy enemies', centerX, 115, '#999999', 9);
-        this.ctx.globalAlpha = 1;
-
         // Decorative line
         this.ctx.strokeStyle = '#333333';
         this.ctx.lineWidth = 1;
         this.ctx.beginPath();
-        this.ctx.moveTo(40, 140);
-        this.ctx.lineTo(this.canvas.width - 40, 140);
+        this.ctx.moveTo(40, 100);
+        this.ctx.lineTo(this.canvas.width - 40, 100);
         this.ctx.stroke();
 
         // "SELECT MODE" header
@@ -450,44 +439,12 @@ export class Renderer {
         const headerPulse = Math.sin(animTime * 3) * 0.1;
         this.ctx.shadowColor = '#ffdd00';
         this.ctx.shadowBlur = 5 + headerPulse * 5;
-        this.drawTextFullyCentered('SELECT MODE', centerX, 162, '#ffdd00', 14);
+        this.drawTextFullyCentered('SELECT MODE', centerX, 122, '#ffdd00', 14);
         this.ctx.restore();
 
         // Draw mode selection buttons (integrated)
         if (modeSelectUI) {
             modeSelectUI.draw(this.ctx, this.canvas.width, this.canvas.height, CONFIG.FONT_FAMILY, touchY, animTime);
-        }
-
-        // Decorative line below modes
-        this.ctx.strokeStyle = '#333333';
-        this.ctx.lineWidth = 1;
-        this.ctx.beginPath();
-        this.ctx.moveTo(40, 450);
-        this.ctx.lineTo(this.canvas.width - 40, 450);
-        this.ctx.stroke();
-
-        // Stats display if available
-        if (stats) {
-            const statsY = 475;
-            this.ctx.globalAlpha = 0.8;
-
-            // Stats in a row
-            const statSpacing = 100;
-            const startX = centerX - statSpacing;
-
-            // High score
-            this.drawTextFullyCentered('HIGH SCORE', startX, statsY, '#aaaaaa', 8);
-            this.drawTextFullyCentered(`${(stats.highScore || 0).toLocaleString()}`, startX, statsY + 14, '#ffdd00', 12);
-
-            // Total kills
-            this.drawTextFullyCentered('KILLS', centerX, statsY, '#aaaaaa', 8);
-            this.drawTextFullyCentered(`${(stats.totalKills || 0).toLocaleString()}`, centerX, statsY + 14, '#00ff88', 12);
-
-            // Games played
-            this.drawTextFullyCentered('GAMES', startX + statSpacing * 2, statsY, '#aaaaaa', 8);
-            this.drawTextFullyCentered(`${stats.gamesPlayed || 0}`, startX + statSpacing * 2, statsY + 14, '#44aaff', 12);
-
-            this.ctx.globalAlpha = 1;
         }
 
         // Footer hint
