@@ -77,17 +77,30 @@ export class Bullet {
 
     draw(renderer) {
         const ctx = renderer.ctx;
-        const color = this.isPlayerBullet
-            ? CONFIG.COLORS.PLAYER_BULLET
-            : CONFIG.COLORS.ENEMY_BULLET;
-
-        ctx.fillStyle = color;
 
         if (this.isPlayerBullet) {
-            // Player bullets: small rectangle
-            ctx.fillRect(this.x - 1, this.y - 4, 2, 8);
+            if (this.isRocket) {
+                // Rocket bullets: larger, orange/red with flame trail
+                ctx.fillStyle = '#ff6600';
+                ctx.fillRect(this.x - 2, this.y - 5, 4, 10);
+
+                // Add bright orange tip
+                ctx.fillStyle = '#ffaa00';
+                ctx.fillRect(this.x - 1.5, this.y - 5, 3, 4);
+
+                // Add flame trail effect
+                ctx.fillStyle = 'rgba(255, 100, 0, 0.6)';
+                ctx.fillRect(this.x - 1, this.y + 3, 2, 4);
+            } else {
+                // Normal player bullets: small rectangle
+                const color = CONFIG.COLORS.PLAYER_BULLET;
+                ctx.fillStyle = color;
+                ctx.fillRect(this.x - 1, this.y - 4, 2, 8);
+            }
         } else {
             // Enemy bullets: larger filled circle for visibility
+            const color = CONFIG.COLORS.ENEMY_BULLET;
+            ctx.fillStyle = color;
             ctx.beginPath();
             ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
             ctx.fill();
