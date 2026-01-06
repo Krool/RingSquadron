@@ -300,6 +300,7 @@ class Game {
             this.swarmBosses = [];
             this.pushWalls = [];
             this.powerupCrates = [];
+            this.multiplierGates = [];
             this.swarmLives = 5;
             this.redBoxEnemySpeedBoost = 1.0;  // Tracks speed boost from enemies reaching red box
             this.permanentUpgrades = { wingmen: 0, hasSpreadShot: false, hasRocketLauncher: false };
@@ -1173,6 +1174,11 @@ class Game {
                 }
             }
 
+            // Update multiplier gates
+            for (const gate of this.multiplierGates) {
+                gate.update(dt);
+            }
+
             // Chase Swarm spawning
             this.spawner.updateChaseSwarmSpawning(
                 currentTime,
@@ -1180,7 +1186,8 @@ class Game {
                 this.swarmBosses,
                 this.cargoShips,
                 this.pushWalls,
-                this.powerupCrates
+                this.powerupCrates,
+                this.multiplierGates
             );
 
             // Enable bullet bouncing for player bullets
@@ -2322,6 +2329,43 @@ class Game {
                 }
             }
 
+            // Multiplier gate bullet duplication
+            for (const gate of this.multiplierGates) {
+                // Store the current bullet count to avoid processing newly created bullets in the same frame
+                const bulletCount = this.playerBullets.length;
+                for (let i = 0; i < bulletCount; i++) {
+                    const bullet = this.playerBullets[i];
+                    if (!bullet.active || bullet.duplicated) continue;
+
+                    if (gate.checkBulletPassThrough(bullet)) {
+                        bullet.duplicated = true;  // Mark to prevent re-duplication
+
+                        // Create duplicates with offset
+                        for (let j = 1; j < gate.multiplier; j++) {
+                            const offset = j * 8 - (gate.multiplier - 1) * 4;  // Spread them out
+                            const newBullet = new (Object.getPrototypeOf(bullet).constructor)(
+                                bullet.x + offset,
+                                bullet.y,
+                                true,
+                                bullet.damage,
+                                bullet.vx,
+                                bullet.vy
+                            );
+                            newBullet.canBounce = true;
+                            newBullet.duplicated = true;  // Mark new bullets as duplicated too
+                            // Copy rocket properties if present
+                            if (bullet.isRocket) {
+                                newBullet.isRocket = true;
+                                newBullet.splashRadius = bullet.splashRadius;
+                            }
+                            this.playerBullets.push(newBullet);
+                        }
+
+                        this.particles.spark(gate.x, gate.y, '#dd88ff');
+                    }
+                }
+            }
+
             // Player vs red box (game over)
             if (this.redBox && this.redBox.checkPlayerCollision(this.player)) {
                 this.player.active = false;
@@ -2820,6 +2864,11 @@ class Game {
             // Draw cargo ships
             for (const ship of this.cargoShips) {
                 ship.draw(this.renderer);
+            }
+
+            // Draw multiplier gates (lowest layer)
+            for (const gate of this.multiplierGates) {
+                gate.draw(this.renderer);
             }
 
             // Draw push walls

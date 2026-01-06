@@ -998,7 +998,7 @@ export class SpawnerSystem {
     /**
      * Update Chase Swarm mode spawning - combines Chase and Swarm mechanics
      */
-    updateChaseSwarmSpawning(currentTime, swarmEnemies, swarmBosses, cargoShips, pushWalls, crates) {
+    updateChaseSwarmSpawning(currentTime, swarmEnemies, swarmBosses, cargoShips, pushWalls, crates, multiplierGates) {
         const cfg = CONFIG.CHASE_SWARM_MODE;
         const playTime = currentTime;
 
@@ -1096,6 +1096,15 @@ export class SpawnerSystem {
             this.spawnChaseSwarmBoss(swarmBosses, health);
             this.bossIndex++;
             this.lastBossSpawn = playTime;
+        }
+
+        // Spawn multiplier gate (once, at start)
+        if (multiplierGates.length === 0) {
+            // Import MultiplierGate dynamically
+            import('../entities/multipliergate.js').then(module => {
+                const MultiplierGate = module.MultiplierGate;
+                multiplierGates.push(new MultiplierGate(this.gameWidth, this.gameHeight, 2));
+            });
         }
     }
 
