@@ -317,7 +317,7 @@ export const CONFIG = {
 
         // Push walls
         pushWallInterval: 12000,         // 12s between push walls
-        pushWallWidthMultiplier: 1.1,    // 10% wider
+        pushWallWidthMultiplier: 1.15,   // 15% wider
 
         // Boost pads
         boostPadInterval: 6000,

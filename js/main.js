@@ -299,9 +299,10 @@ class Game {
             this.swarmEnemies = [];
             this.swarmBosses = [];
             this.pushWalls = [];
-            this.walls = [];  // For boost pads
+            this.powerupCrates = [];
             this.swarmLives = 5;
             this.redBoxEnemySpeedBoost = 1.0;  // Tracks speed boost from enemies reaching red box
+            this.permanentUpgrades = { wingmen: 0, hasSpreadShot: false, hasRocketLauncher: false };
             this.player.health = 1;  // 1 HP, lives system
             this.player.allowVerticalMovement = true;
             this.player.fireRate = CONFIG.PLAYER_FIRE_RATE / 2;  // Double fire rate
@@ -1163,12 +1164,12 @@ class Game {
                 }
             }
 
-            // Update boost pad walls
-            for (let i = this.walls.length - 1; i >= 0; i--) {
-                const wall = this.walls[i];
-                wall.update(dt, dt);
-                if (!wall.active) {
-                    this.walls.splice(i, 1);
+            // Update powerup crates
+            for (let i = this.powerupCrates.length - 1; i >= 0; i--) {
+                const crate = this.powerupCrates[i];
+                crate.update(dt);
+                if (!crate.active) {
+                    this.powerupCrates.splice(i, 1);
                 }
             }
 
@@ -1179,12 +1180,24 @@ class Game {
                 this.swarmBosses,
                 this.cargoShips,
                 this.pushWalls,
-                this.walls
+                this.powerupCrates
             );
 
             // Enable bullet bouncing for player bullets
             for (const bullet of this.playerBullets) {
                 bullet.canBounce = true;
+            }
+
+            // Update rocket explosion visuals
+            for (let i = this.rocketExplosions.length - 1; i >= 0; i--) {
+                const explosion = this.rocketExplosions[i];
+                explosion.time += dt;
+                explosion.radius = explosion.maxRadius * Math.min(explosion.time / 10, 1);  // Expand over 10 frames
+                explosion.alpha = Math.max(0, 1 - explosion.time / 15);  // Fade out over 15 frames
+
+                if (explosion.alpha <= 0) {
+                    this.rocketExplosions.splice(i, 1);
+                }
             }
         } else if (!this.bossActive) {
             // Normal mode spawning
@@ -1222,10 +1235,69 @@ class Game {
         const playerBullets = this.player.update(dt, target, currentTime);
 
         // In Swarm mode, collect auto-fire bullets from player.update()
-        if ((rules.isSwarm || rules.isChaseSwarm) && playerBullets.length > 0) {
-            // Enable bouncing for all bullets
-            for (const bullet of playerBullets) {
-                bullet.canBounce = true;
+        if (rules.isSwarm && playerBullets.length > 0) {
+            // Apply spread shot if unlocked
+            if (this.permanentUpgrades.hasSpreadShot) {
+                // Replace single bullet with spread3 pattern
+                const singleBullet = playerBullets[0];
+                playerBullets.length = 0; // Clear array
+
+                // Create spread3: left, center, right
+                const angles = [-0.3, 0, 0.3]; // Spread angles in radians
+                for (const angle of angles) {
+                    const vx = Math.sin(angle) * 8;
+                    const vy = -8;  // Upward
+                    const bullet = new Bullet(singleBullet.x, singleBullet.y, true, singleBullet.damage, vx, vy);
+                    bullet.canBounce = true;
+                    playerBullets.push(bullet);
+                }
+            } else {
+                // Enable bouncing for single bullet
+                for (const bullet of playerBullets) {
+                    bullet.canBounce = true;
+                }
+            }
+
+            // Apply rocket launcher if unlocked
+            if (this.permanentUpgrades.hasRocketLauncher) {
+                for (const bullet of playerBullets) {
+                    bullet.isRocket = true;
+                    bullet.splashRadius = 20;  // Explosion radius (75% smaller)
+                }
+            }
+
+            this.playerBullets.push(...playerBullets);
+            this.audio.playShoot();
+            this.haptics.light();
+        } else if (rules.isChaseSwarm && playerBullets.length > 0) {
+            // Apply spread shot if unlocked
+            if (this.permanentUpgrades.hasSpreadShot) {
+                // Replace single bullet with spread3 pattern
+                const singleBullet = playerBullets[0];
+                playerBullets.length = 0; // Clear array
+
+                // Create spread3: left, center, right
+                const angles = [-0.3, 0, 0.3]; // Spread angles in radians
+                for (const angle of angles) {
+                    const vx = Math.sin(angle) * 8;
+                    const vy = -8;  // Upward
+                    const bullet = new Bullet(singleBullet.x, singleBullet.y, true, singleBullet.damage, vx, vy);
+                    bullet.canBounce = true;
+                    playerBullets.push(bullet);
+                }
+            } else {
+                // Enable bouncing for single bullet
+                for (const bullet of playerBullets) {
+                    bullet.canBounce = true;
+                }
+            }
+
+            // Apply rocket launcher if unlocked
+            if (this.permanentUpgrades.hasRocketLauncher) {
+                for (const bullet of playerBullets) {
+                    bullet.isRocket = true;
+                    bullet.splashRadius = 20;  // Explosion radius (75% smaller)
+                }
             }
 
             this.playerBullets.push(...playerBullets);
@@ -2091,7 +2163,39 @@ class Game {
                         bullet.active = false;
                         enemy.takeDamage();
                         this.score += 10;
-                        this.particles.spark(enemy.x, enemy.y, '#ff6666');
+
+                        // Rocket splash damage
+                        if (bullet.isRocket && bullet.splashRadius) {
+                            this.particles.explosion(enemy.x, enemy.y, 2);
+                            this.audio.playExplosion();
+                            this.screenFx.shake(5, 0.2);
+
+                            // Visual explosion radius indicator
+                            this.rocketExplosions.push({
+                                x: enemy.x,
+                                y: enemy.y,
+                                radius: 0,
+                                maxRadius: bullet.splashRadius,
+                                alpha: 1.0,
+                                time: 0
+                            });
+
+                            // Damage all enemies in splash radius
+                            for (let j = this.swarmEnemies.length - 1; j >= 0; j--) {
+                                const splashEnemy = this.swarmEnemies[j];
+                                if (!splashEnemy.active) continue;
+                                const dx = splashEnemy.x - enemy.x;
+                                const dy = splashEnemy.y - enemy.y;
+                                const dist = Math.sqrt(dx * dx + dy * dy);
+                                if (dist <= bullet.splashRadius) {
+                                    splashEnemy.takeDamage();
+                                    this.score += 10;
+                                    this.particles.spark(splashEnemy.x, splashEnemy.y, '#ff9900');
+                                }
+                            }
+                        } else {
+                            this.particles.spark(enemy.x, enemy.y, '#ff6666');
+                        }
                         break;
                     }
                 }
@@ -2132,6 +2236,26 @@ class Game {
                             this.score += 50;
                             this.particles.explosion(ship.x, ship.y, 2);
                             this.audio.playExplosion();
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Player bullets vs powerup crates
+            for (const bullet of this.playerBullets) {
+                if (!bullet.active) continue;
+
+                for (const crate of this.powerupCrates) {
+                    if (!crate.active) continue;
+                    if (CollisionSystem.checkAABB(bullet.getBounds(), crate.getBounds())) {
+                        bullet.active = false;
+                        const unlocked = crate.takeDamage();
+                        if (unlocked) {
+                            this.unlockPermanentUpgrade(crate.type);
+                            this.particles.explosion(crate.x, crate.y, 2);
+                            this.audio.playPowerUp();
+                            this.screenFx.flash('#ffaa00', 0.2);
                         }
                         break;
                     }
@@ -2195,25 +2319,6 @@ class Game {
                         this.particles.explosion(ship.x, ship.y, 2);
                         this.audio.playExplosion();
                     }
-                }
-            }
-
-            // Player vs boost pads
-            for (let i = this.walls.length - 1; i >= 0; i--) {
-                const wall = this.walls[i];
-                if (!wall.active || !wall.isBoost()) continue;
-                if (CollisionSystem.checkAABB(this.player.getBounds(), wall.getBounds())) {
-                    // Push red box down
-                    if (this.redBox) {
-                        const cfg = CONFIG.CHASE_SWARM_MODE;
-                        this.redBox.y += cfg.redBoxPushAmount;
-                        if (this.redBox.y > CONFIG.GAME_HEIGHT - 50) {
-                            this.redBox.y = CONFIG.GAME_HEIGHT - 50;
-                        }
-                    }
-                    wall.active = false;
-                    this.particles.spark(wall.x, wall.y, '#44ff44');
-                    this.audio.playPowerUp();
                 }
             }
 
@@ -2717,14 +2822,14 @@ class Game {
                 ship.draw(this.renderer);
             }
 
-            // Draw boost pad walls
-            for (const wall of this.walls) {
-                wall.draw(this.renderer);
-            }
-
             // Draw push walls
             for (const wall of this.pushWalls) {
                 wall.draw(this.renderer);
+            }
+
+            // Draw powerup crates
+            for (const crate of this.powerupCrates) {
+                crate.draw(this.renderer);
             }
 
             // Draw swarm enemies
@@ -2735,6 +2840,25 @@ class Game {
             // Draw swarm bosses
             for (const boss of this.swarmBosses) {
                 boss.draw(this.renderer);
+            }
+
+            // Draw rocket explosion radius indicators
+            const ctx = this.renderer.ctx;
+            for (const explosion of this.rocketExplosions) {
+                ctx.save();
+                ctx.strokeStyle = `rgba(255, 100, 0, ${explosion.alpha})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Inner ring for more visibility
+                ctx.strokeStyle = `rgba(255, 200, 100, ${explosion.alpha * 0.6})`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(explosion.x, explosion.y, explosion.radius * 0.7, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
             }
         }
 

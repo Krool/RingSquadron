@@ -998,7 +998,7 @@ export class SpawnerSystem {
     /**
      * Update Chase Swarm mode spawning - combines Chase and Swarm mechanics
      */
-    updateChaseSwarmSpawning(currentTime, swarmEnemies, swarmBosses, cargoShips, pushWalls, walls) {
+    updateChaseSwarmSpawning(currentTime, swarmEnemies, swarmBosses, cargoShips, pushWalls, crates) {
         const cfg = CONFIG.CHASE_SWARM_MODE;
         const playTime = currentTime;
 
@@ -1016,33 +1016,83 @@ export class SpawnerSystem {
             this.lastCargoSpawn = playTime;
         }
 
-        // Spawn push walls periodically
-        if (!this.lastPushWallSpawn) this.lastPushWallSpawn = 0;
-        if (playTime - this.lastPushWallSpawn >= cfg.pushWallInterval) {
-            const lane = Math.floor(Math.random() * 3);
-            const hitsRequired = 15;
-            this.spawnPushWall(pushWalls, hitsRequired, lane, cfg.pushWallWidthMultiplier);
+        // Spawn push walls every 8 seconds, rotating through lanes (center, left, right)
+        const pushWallInterval = 8000;
+        const timeSinceLastPushWall = playTime - this.lastPushWallSpawn;
+        if (this.lastPushWallSpawn === 0 && playTime >= 3000) {
+            // First push wall at 3s in center lane
+            this.spawnPushWall(pushWalls, 15, this.pushWallLane, cfg.pushWallWidthMultiplier);
             this.lastPushWallSpawn = playTime;
+            // Rotate lane: 1->0->2->1...
+            this.pushWallLane = (this.pushWallLane === 1) ? 0 : (this.pushWallLane === 0) ? 2 : 1;
+        } else if (timeSinceLastPushWall >= pushWallInterval && this.lastPushWallSpawn > 0) {
+            // Subsequent push walls every 8s, rotating lanes
+            const wallCount = Math.floor((playTime - 3000) / pushWallInterval);
+            this.spawnPushWall(pushWalls, 15 + wallCount * 5, this.pushWallLane, cfg.pushWallWidthMultiplier);
+            this.lastPushWallSpawn = playTime;
+            // Rotate lane: 1->0->2->1...
+            this.pushWallLane = (this.pushWallLane === 1) ? 0 : (this.pushWallLane === 0) ? 2 : 1;
         }
 
-        // Spawn boost pads periodically
-        if (!this.lastBoostPadSpawn) this.lastBoostPadSpawn = 0;
-        if (playTime - this.lastBoostPadSpawn >= cfg.boostPadInterval) {
-            const lane = Math.floor(Math.random() * 3);
-            this.spawnBoostPad(walls, lane);
-            this.lastBoostPadSpawn = playTime;
+        // Spawn wingmen powerups spread over 20 seconds (17 total)
+        const wingmanSchedule = [
+            { time: 0, x: 0.5, hits: 5 },       // Center
+            { time: 1000, x: 0.42, hits: 3 },   // Left-center
+            { time: 2000, x: 0.58, hits: 3 },   // Right-center
+            { time: 3000, x: 0.46, hits: 4 },   // Left-center
+            { time: 4000, x: 0.54, hits: 4 },   // Right-center
+            { time: 5000, x: 0.38, hits: 5 },   // Left
+            { time: 6000, x: 0.62, hits: 5 },   // Right
+            { time: 7000, x: 0.5, hits: 6 },    // Center
+            { time: 8000, x: 0.44, hits: 4 },   // Left-center
+            { time: 9000, x: 0.56, hits: 4 },   // Right-center
+            { time: 10000, x: 0.40, hits: 5 },  // Left
+            { time: 11000, x: 0.60, hits: 5 },  // Right
+            { time: 12000, x: 0.5, hits: 7 },   // Center
+            { time: 14000, x: 0.48, hits: 6 },  // Left-center
+            { time: 16000, x: 0.52, hits: 6 },  // Right-center
+            { time: 18000, x: 0.36, hits: 8 },  // Left
+            { time: 20000, x: 0.64, hits: 8 }   // Right
+        ];
+
+        for (let i = 0; i < wingmanSchedule.length; i++) {
+            const spawn = wingmanSchedule[i];
+            if (playTime >= spawn.time && this.cratesSpawned === i) {
+                this.spawnPowerupCrate(crates, this.gameWidth * spawn.x, 'wingman', spawn.hits);
+                this.cratesSpawned++;
+                break; // Only spawn one per frame
+            }
         }
 
-        // Spawn first boss (T=30000ms, 100 hits)
-        if (playTime >= 30000 && this.bossIndex === 0) {
-            this.spawnChaseSwarmBoss(swarmBosses, cfg.bossHealthBase);
+        // Spawn spread shot crate (T=6000ms)
+        if (playTime >= 6000 && !this.spreadShotSpawned) {
+            this.spawnPowerupCrate(crates, this.gameWidth * 0.5, 'spreadshot', 50);
+            this.spreadShotSpawned = true;
+        }
+
+        // Spawn rocket launcher crate (T=15000ms)
+        if (playTime >= 15000 && !this.rocketSpawned) {
+            this.spawnPowerupCrate(crates, this.gameWidth * 0.5, 'rocket', 100);
+            this.rocketSpawned = true;
+        }
+
+        // Spawn first boss (T=22000ms, 50 hits)
+        if (playTime >= 22000 && this.bossIndex === 0) {
+            this.spawnChaseSwarmBoss(swarmBosses, 50);
             this.bossIndex++;
             this.lastBossSpawn = playTime;
         }
 
-        // Continue spawning bosses (every 20s after first boss)
-        if (this.bossIndex >= 1 && playTime - this.lastBossSpawn >= cfg.bossSpawnInterval) {
-            const health = Math.pow(cfg.bossHealthScaling, this.bossIndex) * cfg.bossHealthBase;
+        // Spawn second boss (T=25000ms, 250 hits)
+        if (playTime >= 25000 && this.bossIndex === 1) {
+            this.spawnChaseSwarmBoss(swarmBosses, 250);
+            this.bossIndex++;
+            this.lastBossSpawn = playTime;
+        }
+
+        // Continue spawning bosses exponentially (every 15s after second boss)
+        if (this.bossIndex >= 2 && playTime - this.lastBossSpawn >= 15000) {
+            const health = Math.pow(2, this.bossIndex - 1) * 250;  // 500, 1000, 2000...
             this.spawnChaseSwarmBoss(swarmBosses, health);
             this.bossIndex++;
             this.lastBossSpawn = playTime;
@@ -1090,13 +1140,4 @@ export class SpawnerSystem {
         });
     }
 
-    /**
-     * Spawn a boost pad in specified lane
-     */
-    spawnBoostPad(walls, lane) {
-        const laneWidth = this.gameWidth / 3;
-        const x = laneWidth * lane + laneWidth / 2;
-        const wall = new Wall(x, -40, lane, 'BOOST');
-        walls.push(wall);
-    }
 }
