@@ -1823,7 +1823,9 @@ class Game {
 
             // Multiplier gate bullet duplication
             for (const gate of this.multiplierGates) {
-                for (let i = 0; i < this.playerBullets.length; i++) {
+                // Store the current bullet count to avoid processing newly created bullets in the same frame
+                const bulletCount = this.playerBullets.length;
+                for (let i = 0; i < bulletCount; i++) {
                     const bullet = this.playerBullets[i];
                     if (!bullet.active || bullet.duplicated) continue;
 
@@ -1842,6 +1844,7 @@ class Game {
                                 bullet.vy
                             );
                             newBullet.canBounce = true;
+                            newBullet.duplicated = true;  // Mark new bullets as duplicated too
                             this.playerBullets.push(newBullet);
                         }
 

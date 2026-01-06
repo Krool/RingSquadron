@@ -12,9 +12,9 @@ export class SwarmEnemy {
     constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.size = 3;  // 3px dot
+        this.size = 4;  // 4px dot (30% larger for easier hitting)
         this.health = 1;
-        this.speed = 1.2;  // Slow movement
+        this.speed = 0.3;  // 75% slower (4x longer to reach bottom)
         this.active = true;
         this.homingActive = false;  // Activates at 30% height
         this.homingThreshold = CONFIG.GAME_HEIGHT * 0.3;
