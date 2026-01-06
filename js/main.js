@@ -23,6 +23,7 @@ import { AudioManager } from './audio.js';
 import { Player } from './entities/player.js';
 import { Ally } from './entities/ally.js';
 import { Enemy } from './entities/enemy.js';
+import { Bullet } from './entities/bullet.js';
 import { CollisionSystem } from './systems/collision.js';
 import { FormationSystem } from './systems/formation.js';
 import { SpawnerSystem } from './systems/spawner.js';
