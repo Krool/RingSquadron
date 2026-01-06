@@ -130,6 +130,7 @@ class Game {
         this.powerupCrates = [];
         this.pushWalls = [];
         this.multiplierGates = [];
+        this.rocketExplosions = [];  // Visual explosion radius indicators
         this.swarmLives = 5;
         this.permanentUpgrades = {
             wingmen: 0,
@@ -1074,6 +1075,18 @@ class Game {
             for (const bullet of this.playerBullets) {
                 bullet.canBounce = true;
             }
+
+            // Update rocket explosion visuals
+            for (let i = this.rocketExplosions.length - 1; i >= 0; i--) {
+                const explosion = this.rocketExplosions[i];
+                explosion.time += dt;
+                explosion.radius = explosion.maxRadius * Math.min(explosion.time / 10, 1);  // Expand over 10 frames
+                explosion.alpha = Math.max(0, 1 - explosion.time / 15);  // Fade out over 15 frames
+
+                if (explosion.alpha <= 0) {
+                    this.rocketExplosions.splice(i, 1);
+                }
+            }
         } else if (!this.bossActive) {
             // Normal mode spawning
             const difficulty = this.spawner.getDifficulty() * this.gameMode.getDifficultyMultiplier(this.currentWave);
@@ -1137,7 +1150,7 @@ class Game {
             if (this.permanentUpgrades.hasRocketLauncher) {
                 for (const bullet of playerBullets) {
                     bullet.isRocket = true;
-                    bullet.splashRadius = 80;  // Explosion radius
+                    bullet.splashRadius = 20;  // Explosion radius (75% smaller)
                 }
             }
 
@@ -1807,6 +1820,16 @@ class Game {
                             this.audio.playExplosion();
                             this.screenFx.shake(5, 0.2);
 
+                            // Visual explosion radius indicator
+                            this.rocketExplosions.push({
+                                x: enemy.x,
+                                y: enemy.y,
+                                radius: 0,
+                                maxRadius: bullet.splashRadius,
+                                alpha: 1.0,
+                                time: 0
+                            });
+
                             // Damage all enemies in splash radius
                             for (let j = this.swarmEnemies.length - 1; j >= 0; j--) {
                                 const splashEnemy = this.swarmEnemies[j];
@@ -2381,6 +2404,25 @@ class Game {
             // Draw powerup crates
             for (const crate of this.powerupCrates) {
                 crate.draw(this.renderer);
+            }
+
+            // Draw rocket explosion radius indicators
+            const ctx = this.renderer.ctx;
+            for (const explosion of this.rocketExplosions) {
+                ctx.save();
+                ctx.strokeStyle = `rgba(255, 100, 0, ${explosion.alpha})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Inner ring for more visibility
+                ctx.strokeStyle = `rgba(255, 200, 100, ${explosion.alpha * 0.6})`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(explosion.x, explosion.y, explosion.radius * 0.7, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
             }
         }
 
