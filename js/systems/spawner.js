@@ -59,6 +59,14 @@ export class SpawnerSystem {
         this.lastGoldenBoostSpawn = 0;
         this.lastCargoShipSpawn = 0;
         this.lastEnemySpawn = 0;
+
+        // Swarm mode timers
+        this.swarmSpawnTimer = 0;
+        this.lastBossSpawn = 0;
+        this.bossIndex = 0;
+        this.lastCrateSpawn = 0;
+        this.lastPushWallSpawn = 0;
+        this.cratesSpawned = 0;
     }
 
     update(currentTime, enemies, rings, difficulty = 1, allyCount = 0, modeSpawnMult = 1, walls = null, hasWalls = false, noAllyRings = false) {
@@ -807,5 +815,123 @@ export class SpawnerSystem {
         enemy.maxHealth = enemy.health;
 
         enemies.push(enemy);
+    }
+
+    // ========================================
+    // SWARM MODE SPAWNING
+    // ========================================
+
+    /**
+     * Update Swarm mode spawning - swarm enemies, bosses, crates, push walls, multiplier gates
+     */
+    updateSwarmMode(currentTime, swarmEnemies, swarmBosses, crates, pushWalls, multiplierGates) {
+        const playTime = currentTime; // Milliseconds since start
+
+        // Spawn small swarm enemies continuously (every 50ms = 20 per second)
+        this.swarmSpawnTimer += 16; // Approximate frame time
+        if (this.swarmSpawnTimer >= 50) {
+            this.spawnSwarmWave(swarmEnemies);
+            this.swarmSpawnTimer = 0;
+        }
+
+        // Spawn first wingman crate immediately (T=0)
+        if (this.cratesSpawned === 0 && playTime >= 0) {
+            this.spawnPowerupCrate(crates, this.gameWidth / 2, 'wingman', 5);
+            this.cratesSpawned++;
+        }
+
+        // Spawn first push wall (T=3000ms)
+        if (playTime >= 3000 && this.lastPushWallSpawn === 0) {
+            this.spawnPushWall(pushWalls, 15);
+            this.lastPushWallSpawn = playTime;
+        }
+
+        // Spawn first boss (T=5000ms, 100 hits)
+        if (playTime >= 5000 && this.bossIndex === 0) {
+            this.spawnSwarmBoss(swarmBosses, 100);
+            this.bossIndex++;
+            this.lastBossSpawn = playTime;
+        }
+
+        // Spawn spread + wingman crates (T=6000ms)
+        if (playTime >= 6000 && this.cratesSpawned === 1) {
+            this.spawnPowerupCrate(crates, this.gameWidth * 0.25, 'spreadshot', 100);
+            this.spawnPowerupCrate(crates, this.gameWidth * 0.75, 'wingman', 20);
+            this.cratesSpawned += 2;
+        }
+
+        // Spawn second boss (T=15000ms, 500 hits)
+        if (playTime >= 15000 && this.bossIndex === 1) {
+            this.spawnSwarmBoss(swarmBosses, 500);
+            this.bossIndex++;
+            this.lastBossSpawn = playTime;
+        }
+
+        // Continue spawning bosses exponentially (every 15s after second boss)
+        if (this.bossIndex >= 2 && playTime - this.lastBossSpawn >= 15000) {
+            const health = Math.pow(2, this.bossIndex - 1) * 500;  // 1000, 2000, 4000...
+            this.spawnSwarmBoss(swarmBosses, health);
+            this.bossIndex++;
+            this.lastBossSpawn = playTime;
+        }
+
+        // Spawn multiplier gate (once, at start)
+        if (multiplierGates.length === 0) {
+            // Import MultiplierGate dynamically
+            import('../entities/multipliergate.js').then(module => {
+                const MultiplierGate = module.MultiplierGate;
+                multiplierGates.push(new MultiplierGate(this.gameWidth, this.gameHeight, 2));
+            });
+        }
+    }
+
+    /**
+     * Spawn a wave of small swarm enemies across the top
+     */
+    spawnSwarmWave(swarmEnemies) {
+        // Import SwarmEnemy dynamically
+        import('../entities/swarmenemy.js').then(module => {
+            const SwarmEnemy = module.SwarmEnemy;
+            // Spawn 10 enemies across the top
+            for (let i = 0; i < 10; i++) {
+                const x = Math.random() * this.gameWidth;
+                const y = -10;
+                swarmEnemies.push(new SwarmEnemy(x, y));
+            }
+        });
+    }
+
+    /**
+     * Spawn a swarm boss with specified health
+     */
+    spawnSwarmBoss(swarmBosses, health) {
+        // Import SwarmBoss dynamically
+        import('../entities/swarmboss.js').then(module => {
+            const SwarmBoss = module.SwarmBoss;
+            const x = this.gameWidth / 2;
+            const y = -50;
+            swarmBosses.push(new SwarmBoss(x, y, health));
+        });
+    }
+
+    /**
+     * Spawn a powerup crate
+     */
+    spawnPowerupCrate(crates, x, type, hitsRequired) {
+        // Import PowerupCrate dynamically
+        import('../entities/powerupcrate.js').then(module => {
+            const PowerupCrate = module.PowerupCrate;
+            crates.push(new PowerupCrate(x, type, hitsRequired));
+        });
+    }
+
+    /**
+     * Spawn a hit-counter push wall
+     */
+    spawnPushWall(pushWalls, hitsRequired) {
+        const lane = 1;  // Center lane
+        const x = this.gameWidth / 2;
+        const wall = new Wall(x, -40, lane, 'HIT_COUNTER_PUSH', hitsRequired);
+        pushWalls.push(wall);
     }
 }

@@ -247,5 +247,34 @@ export const CONFIG = {
 
         // Difficulty
         spawnRateIncrease: 0.08         // -8% interval per wave
+    },
+
+    // ========================================
+    // SWARM MODE
+    // ========================================
+    SWARM_MODE: {
+        // Small enemies
+        swarmEnemySize: 3,
+        swarmEnemySpeed: 1.2,
+        swarmEnemyHomingThreshold: 0.3,  // 30% down screen
+        swarmSpawnRate: 50,              // ms between spawns (20 per second)
+        swarmPerSpawn: 10,               // Enemies per spawn
+
+        // Bosses
+        bossSpawnInterval: 15000,        // 15s between bosses after #2
+        bossHealthBase: 100,
+        bossHealthScaling: 2,            // Exponential multiplier
+
+        // Lives
+        playerLives: 5,
+
+        // Multiplier gate
+        gateWidth: 0.2,                  // 20% of screen
+        gateSpeed: 2,
+        gateMultiplier: 2,
+
+        // Scores
+        swarmEnemyScore: 10,
+        swarmBossScore: 1000
     }
 };

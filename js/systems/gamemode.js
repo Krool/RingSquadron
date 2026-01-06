@@ -19,6 +19,23 @@ export const GAME_MODES = {
             canWin: true            // Victory possible
         }
     },
+    SWARM: {
+        name: 'Swarm',
+        description: 'Survive the endless horde!',
+        icon: '≋',
+        rules: {
+            waves: Infinity,        // Endless survival
+            lives: 5,               // 5 hits before death
+            goldMultiplier: 0,      // No gold
+            difficultyRamp: 'time', // Time-based scaling
+            bossEvery: 0,           // No traditional bosses
+            hasWalls: true,         // Multiplier gates and push walls
+            noAllyRings: true,      // No rings
+            noShop: true,           // No shop
+            isSwarm: true,          // Flag for Swarm-specific logic
+            canWin: false           // Endless mode
+        }
+    },
     CAMPAIGN: {
         name: 'Campaign',
         description: '12 puzzle levels, master the rings',

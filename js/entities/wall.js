@@ -120,11 +120,27 @@ export const WALL_TYPES = {
         isGolden: true,
         invincibilityDuration: 3000,  // 3 seconds
         resetsRedBox: true
+    },
+    HIT_COUNTER_PUSH: {
+        name: 'Hit Counter Push',
+        color: '#ff9933',
+        stripeColor: '#ffdd44',
+        text: 'PUSH',
+        textColor: '#ffff99',
+        blocksPlayerBullets: false,  // Bullets pass through and count
+        blocksEnemyBullets: false,
+        blocksPlayer: true,
+        blocksEnemies: true,
+        destructible: false,
+        pushable: true,
+        boosts: false,
+        hitCounter: true,
+        hitsRequired: 15  // Default, can be overridden in constructor
     }
 };
 
 export class Wall {
-    constructor(x, y, lane, type = 'SOLID') {
+    constructor(x, y, lane, type = 'SOLID', hitsRequired = null) {
         this.x = x;
         this.y = y;
         this.lane = lane; // 0 = left, 1 = center, 2 = right
@@ -148,6 +164,11 @@ export class Wall {
         // Pushable wall state
         this.pushVelocity = 0; // Upward velocity from being pushed
 
+        // Hit counter for push walls (Swarm mode)
+        this.hitCount = 0;
+        this.hitsRequired = hitsRequired || this.typeData.hitsRequired || 0;
+        this.triggered = false;
+
         // Visual effects
         this.pulseTimer = 0;
         this.hitFlash = 0;
@@ -163,6 +184,12 @@ export class Wall {
         const dt = deltaTime / 16;
         // Use real time for animations (not affected by boost)
         const realDt = (realDeltaTime !== null ? realDeltaTime : deltaTime) / 16;
+
+        // Auto-push when hit threshold reached (Swarm mode hit-counter walls)
+        if (this.typeData.hitCounter && !this.triggered && this.hitCount >= this.hitsRequired) {
+            this.triggered = true;
+            this.pushVelocity = 3;  // Strong initial push
+        }
 
         // Pushable walls have special velocity handling
         if (this.typeData.pushable && this.pushVelocity !== 0) {
@@ -220,6 +247,16 @@ export class Wall {
         // Each hit adds velocity
         this.pushVelocity += force;
         this.hitFlash = 1;
+    }
+
+    // Register bullet hit for hit-counter walls (Swarm mode)
+    registerBulletHit() {
+        if (this.typeData.hitCounter && !this.triggered) {
+            this.hitCount++;
+            this.hitFlash = 1;
+            return this.hitCount >= this.hitsRequired;  // Returns true when triggered
+        }
+        return false;
     }
 
     // Check if wall collided with another immovable wall
@@ -312,6 +349,16 @@ export class Wall {
             ctx.fillStyle = `rgba(255, 200, 100, ${Math.min(1, this.pushVelocity / 5)})`;
             ctx.font = `bold 8px ${CONFIG.FONT_FAMILY}`;
             ctx.fillText(`↑${this.pushVelocity.toFixed(1)}`, this.x, this.y - 20);
+        }
+
+        // Hit counter for hit-counter push walls (Swarm mode)
+        if (typeData.hitCounter && !this.triggered) {
+            const remaining = this.hitsRequired - this.hitCount;
+            ctx.fillStyle = '#ffff00';
+            ctx.font = `bold 14px ${CONFIG.FONT_FAMILY}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(remaining, this.x, this.y);
         }
 
         ctx.textAlign = 'left';

@@ -7,7 +7,7 @@ import { CONFIG } from '../utils/config.js';
 import { SPRITES } from '../utils/sprites.js';
 
 export class Bullet {
-    constructor(x, y, isPlayerBullet = true, damage = CONFIG.PLAYER_BULLET_DAMAGE) {
+    constructor(x, y, isPlayerBullet = true, damage = CONFIG.PLAYER_BULLET_DAMAGE, vx = 0, vy = null) {
         this.x = x;
         this.y = y;
         this.isPlayerBullet = isPlayerBullet;
@@ -15,6 +15,15 @@ export class Bullet {
         this.speed = isPlayerBullet ? CONFIG.PLAYER_BULLET_SPEED : 4; // Slower enemy bullets
         this.active = true;
         this.sprite = isPlayerBullet ? SPRITES.BULLET_UP : SPRITES.BULLET_DOWN;
+
+        // Velocity components (for angled shots and bouncing)
+        this.vx = vx;
+        this.vy = vy !== null ? vy : (isPlayerBullet ? -this.speed : this.speed);
+
+        // Bouncing (Swarm mode only)
+        this.bounceCount = 0;
+        this.canBounce = false;  // Enabled in Swarm mode
+        this.duplicated = false;  // Track if passed through multiplier gate
 
         // Enemy bullets are larger for visibility
         if (isPlayerBullet) {
@@ -29,11 +38,40 @@ export class Bullet {
     }
 
     update(deltaTime) {
-        const direction = this.isPlayerBullet ? -1 : 1;
-        this.y += this.speed * direction * (deltaTime / 16);
+        const dt = deltaTime / 16;
 
-        if (this.y < -20 || this.y > CONFIG.GAME_HEIGHT + 20) {
-            this.active = false;
+        // Move using velocity components
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+
+        // Wall bouncing (if enabled in Swarm mode)
+        if (this.canBounce && this.isPlayerBullet) {
+            const halfWidth = this.width / 2;
+
+            // Bounce off left/right walls
+            if (this.x - halfWidth <= 0) {
+                this.x = halfWidth;
+                this.vx = Math.abs(this.vx);  // Reverse to right
+                this.bounceCount++;
+            } else if (this.x + halfWidth >= CONFIG.GAME_WIDTH) {
+                this.x = CONFIG.GAME_WIDTH - halfWidth;
+                this.vx = -Math.abs(this.vx);  // Reverse to left
+                this.bounceCount++;
+            }
+        }
+
+        // Deactivate off-screen
+        if (this.canBounce) {
+            // For bouncing mode: only despawn off top/bottom
+            if (this.y < -20 || this.y > CONFIG.GAME_HEIGHT + 20) {
+                this.active = false;
+            }
+        } else {
+            // Normal bounds check: despawn off any edge
+            if (this.y < -20 || this.y > CONFIG.GAME_HEIGHT + 20 ||
+                this.x < -20 || this.x > CONFIG.GAME_WIDTH + 20) {
+                this.active = false;
+            }
         }
     }
 

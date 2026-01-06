@@ -45,6 +45,10 @@ import { LevelSelectUI } from './systems/levelselect.js';
 import { GameOverUI } from './systems/gameoverui.js';
 import { RedBox } from './entities/redbox.js';
 import { CargoShip } from './entities/cargoship.js';
+import { SwarmEnemy } from './entities/swarmenemy.js';
+import { SwarmBoss } from './entities/swarmboss.js';
+import { MultiplierGate } from './entities/multipliergate.js';
+import { PowerupCrate } from './entities/powerupcrate.js';
 
 class Game {
     constructor() {
@@ -118,6 +122,18 @@ class Game {
         this.playerInvincibilityTimer = 0;
         this.redBoxSlowdownTimer = 0;
         this.waveTimer = 0;  // Track wave progression in Chase mode
+
+        // Swarm mode entities
+        this.swarmEnemies = [];
+        this.swarmBosses = [];
+        this.powerupCrates = [];
+        this.pushWalls = [];
+        this.multiplierGates = [];
+        this.swarmLives = 5;
+        this.permanentUpgrades = {
+            wingmen: 0,
+            hasSpreadShot: false
+        };
 
         // Timing
         this.lastTime = 0;
@@ -248,6 +264,25 @@ class Game {
             this.redBox = null;
             this.cargoShips = [];
             this.player.allowVerticalMovement = false;  // Disable vertical movement
+        }
+
+        // Initialize Swarm mode entities
+        if (rules.isSwarm) {
+            this.swarmEnemies = [];
+            this.swarmBosses = [];
+            this.powerupCrates = [];
+            this.pushWalls = [];
+            this.multiplierGates = [];
+            this.swarmLives = 5;
+            this.permanentUpgrades = { wingmen: 0, hasSpreadShot: false };
+            this.player.health = 1;  // 1 HP, lives system
+            this.player.allowVerticalMovement = false;  // Keep horizontal movement only
+        } else {
+            this.swarmEnemies = [];
+            this.swarmBosses = [];
+            this.powerupCrates = [];
+            this.pushWalls = [];
+            this.multiplierGates = [];
         }
 
         // Apply upgrades to player
@@ -975,6 +1010,64 @@ class Game {
             if (this.waveTimer >= CONFIG.CHASE_MODE.waveDuration) {
                 this.nextWaveChase();
             }
+        } else if (rules.isSwarm) {
+            // Swarm mode: Update swarm enemies, bosses, crates, push walls, multiplier gates
+
+            // Update swarm enemies
+            for (let i = this.swarmEnemies.length - 1; i >= 0; i--) {
+                const enemy = this.swarmEnemies[i];
+                enemy.update(dt, this.player.x, this.player.y);
+                if (!enemy.active) {
+                    this.swarmEnemies.splice(i, 1);
+                }
+            }
+
+            // Update swarm bosses
+            for (let i = this.swarmBosses.length - 1; i >= 0; i--) {
+                const boss = this.swarmBosses[i];
+                boss.update(dt, this.player.x, this.player.y);
+                if (!boss.active) {
+                    this.swarmBosses.splice(i, 1);
+                }
+            }
+
+            // Update powerup crates
+            for (let i = this.powerupCrates.length - 1; i >= 0; i--) {
+                const crate = this.powerupCrates[i];
+                crate.update(dt);
+                if (!crate.active) {
+                    this.powerupCrates.splice(i, 1);
+                }
+            }
+
+            // Update push walls
+            for (let i = this.pushWalls.length - 1; i >= 0; i--) {
+                const wall = this.pushWalls[i];
+                wall.update(dt, dt);
+                if (!wall.active) {
+                    this.pushWalls.splice(i, 1);
+                }
+            }
+
+            // Update multiplier gates
+            for (const gate of this.multiplierGates) {
+                gate.update(dt);
+            }
+
+            // Swarm spawning
+            this.spawner.updateSwarmMode(
+                currentTime,
+                this.swarmEnemies,
+                this.swarmBosses,
+                this.powerupCrates,
+                this.pushWalls,
+                this.multiplierGates
+            );
+
+            // Enable bullet bouncing for player bullets
+            for (const bullet of this.playerBullets) {
+                bullet.canBounce = true;
+            }
         } else if (!this.bossActive) {
             // Normal mode spawning
             const difficulty = this.spawner.getDifficulty() * this.gameMode.getDifficultyMultiplier(this.currentWave);
@@ -1650,6 +1743,168 @@ class Game {
                 }
             }
         }
+
+        // Swarm mode collisions
+        if (rules.isSwarm) {
+            // Player bullets vs swarm enemies
+            for (let i = this.playerBullets.length - 1; i >= 0; i--) {
+                const bullet = this.playerBullets[i];
+                if (!bullet.active) continue;
+
+                for (const enemy of this.swarmEnemies) {
+                    if (!enemy.active) continue;
+                    if (CollisionSystem.checkAABB(bullet.getBounds(), enemy.getBounds())) {
+                        bullet.active = false;
+                        enemy.takeDamage();
+                        this.score += 10;
+                        this.particles.spark(enemy.x, enemy.y, '#ff6666');
+                        break;
+                    }
+                }
+            }
+
+            // Player bullets vs swarm bosses
+            for (const bullet of this.playerBullets) {
+                if (!bullet.active) continue;
+
+                for (const boss of this.swarmBosses) {
+                    if (!boss.active) continue;
+                    if (CollisionSystem.checkAABB(bullet.getBounds(), boss.getBounds())) {
+                        bullet.active = false;
+                        const killed = boss.takeDamage(bullet.damage);
+                        if (killed) {
+                            this.score += 1000;
+                            this.particles.explosion(boss.x, boss.y, 3);
+                            this.audio.playExplosion();
+                            this.screenFx.shake(10, 0.3);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Player bullets vs powerup crates
+            for (const bullet of this.playerBullets) {
+                if (!bullet.active) continue;
+
+                for (const crate of this.powerupCrates) {
+                    if (!crate.active) continue;
+                    if (CollisionSystem.checkAABB(bullet.getBounds(), crate.getBounds())) {
+                        bullet.active = false;
+                        const unlocked = crate.takeDamage();
+                        if (unlocked) {
+                            this.unlockPermanentUpgrade(crate.type);
+                            this.particles.explosion(crate.x, crate.y, 2);
+                            this.audio.playPowerUp();
+                            this.screenFx.flash('#ffaa00', 0.2);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Player bullets vs push walls (count hits)
+            for (const bullet of this.playerBullets) {
+                if (!bullet.active) continue;
+
+                for (const wall of this.pushWalls) {
+                    if (!wall.active || wall.triggered) continue;
+                    if (CollisionSystem.checkAABB(bullet.getBounds(), wall.getBounds())) {
+                        bullet.active = false;
+                        const triggered = wall.registerBulletHit();
+                        if (triggered) {
+                            this.audio.playPowerUp();
+                            this.screenFx.shake(5, 0.2);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Multiplier gate bullet duplication
+            for (const gate of this.multiplierGates) {
+                for (let i = 0; i < this.playerBullets.length; i++) {
+                    const bullet = this.playerBullets[i];
+                    if (!bullet.active || bullet.duplicated) continue;
+
+                    if (gate.checkBulletPassThrough(bullet)) {
+                        bullet.duplicated = true;  // Mark to prevent re-duplication
+
+                        // Create duplicates with offset
+                        for (let j = 1; j < gate.multiplier; j++) {
+                            const offset = j * 8 - (gate.multiplier - 1) * 4;  // Spread them out
+                            const newBullet = new (Object.getPrototypeOf(bullet).constructor)(
+                                bullet.x + offset,
+                                bullet.y,
+                                true,
+                                bullet.damage,
+                                bullet.vx,
+                                bullet.vy
+                            );
+                            newBullet.canBounce = true;
+                            this.playerBullets.push(newBullet);
+                        }
+
+                        this.particles.spark(gate.x, gate.y, '#dd88ff');
+                    }
+                }
+            }
+
+            // Push walls vs enemies (kill on contact)
+            for (const wall of this.pushWalls) {
+                if (!wall.triggered || wall.pushVelocity <= 0) continue;
+
+                for (let i = this.swarmEnemies.length - 1; i >= 0; i--) {
+                    const enemy = this.swarmEnemies[i];
+                    if (CollisionSystem.checkAABB(wall.getBounds(), enemy.getBounds())) {
+                        this.swarmEnemies.splice(i, 1);
+                        this.particles.explosion(enemy.x, enemy.y, 1);
+                        this.score += 10;
+                    }
+                }
+
+                for (const boss of this.swarmBosses) {
+                    if (CollisionSystem.checkAABB(wall.getBounds(), boss.getBounds())) {
+                        boss.active = false;
+                        this.particles.explosion(boss.x, boss.y, 3);
+                        this.score += 1000;
+                    }
+                }
+            }
+
+            // Swarm enemies vs player (deal 1 damage, die)
+            for (let i = this.swarmEnemies.length - 1; i >= 0; i--) {
+                const enemy = this.swarmEnemies[i];
+                if (CollisionSystem.checkAABB(this.player.getBounds(), enemy.getBounds())) {
+                    this.swarmEnemies.splice(i, 1);
+                    this.swarmLives--;
+                    this.particles.damageHit(this.player.x, this.player.y);
+                    this.audio.playDamage();
+                    this.screenFx.shake(10, 0.3);
+                    this.floatingText.add(this.player.x, this.player.y - 40, `${this.swarmLives} LIVES`, {
+                        color: '#ffdd00',
+                        size: 14,
+                        duration: 1000
+                    });
+
+                    if (this.swarmLives <= 0) {
+                        this.player.active = false;
+                        this.state = 'gameover';
+                    }
+                }
+            }
+
+            // Swarm boss vs player (instant kill)
+            for (const boss of this.swarmBosses) {
+                if (CollisionSystem.checkAABB(this.player.getBounds(), boss.getBounds())) {
+                    this.player.active = false;
+                    this.state = 'gameover';
+                    this.particles.explosion(this.player.x, this.player.y, 3);
+                    this.audio.playExplosion();
+                    this.screenFx.shake(30, 1.0);
+                }
+            }
+        }
     }
 
     // Calculate ally damage multiplier based on total ally count
@@ -1925,6 +2180,33 @@ class Game {
         }
     }
 
+    // Swarm mode permanent upgrade unlocking
+    unlockPermanentUpgrade(type) {
+        switch (type) {
+            case 'wingman':
+                this.permanentUpgrades.wingmen++;
+                // Spawn a new ally
+                const ally = new Ally(this.allies.length);
+                ally.setSpawnPosition(this.player.x, this.player.y);
+                this.allies.push(ally);
+                this.alliesRecruited++;
+                this.floatingText.add(this.player.x, this.player.y - 40, 'WINGMAN!', {
+                    color: '#00ff88',
+                    size: 16
+                });
+                this.particles.allyJoin(this.player.x, this.player.y);
+                break;
+
+            case 'spreadshot':
+                this.permanentUpgrades.hasSpreadShot = true;
+                this.floatingText.add(this.player.x, this.player.y - 40, 'SPREAD SHOT!', {
+                    color: '#ffaa00',
+                    size: 16
+                });
+                break;
+        }
+    }
+
     render() {
         const ctx = this.canvas.getContext('2d');
 
@@ -1985,6 +2267,35 @@ class Game {
         for (const ship of this.cargoShips) {
             if (ship.active) {
                 ship.draw(this.renderer);
+            }
+        }
+
+        // Draw Swarm mode entities
+        const rules = this.gameMode.getRules();
+        if (rules.isSwarm) {
+            // Draw multiplier gates (lowest layer)
+            for (const gate of this.multiplierGates) {
+                gate.draw(this.renderer);
+            }
+
+            // Draw push walls
+            for (const wall of this.pushWalls) {
+                wall.draw(this.renderer);
+            }
+
+            // Draw swarm enemies
+            for (const enemy of this.swarmEnemies) {
+                enemy.draw(this.renderer);
+            }
+
+            // Draw swarm bosses
+            for (const boss of this.swarmBosses) {
+                boss.draw(this.renderer);
+            }
+
+            // Draw powerup crates
+            for (const crate of this.powerupCrates) {
+                crate.draw(this.renderer);
             }
         }
 
@@ -2069,6 +2380,14 @@ class Game {
                 24
             );
             ctx.globalAlpha = 1;
+        }
+
+        // Draw Swarm lives counter
+        if (rules.isSwarm) {
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold 16px ${CONFIG.FONT_FAMILY}`;
+            ctx.textAlign = 'right';
+            ctx.fillText(`LIVES: ${this.swarmLives}`, CONFIG.GAME_WIDTH - 10, 25);
         }
 
         // Draw UI overlays
