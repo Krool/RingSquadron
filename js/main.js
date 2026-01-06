@@ -295,7 +295,7 @@ class Game {
 
         // Initialize Chase Swarm mode entities (hybrid mode)
         if (rules.isChaseSwarm) {
-            this.redBox = new RedBox(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+            this.redBox = new RedBox(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'CHASE_SWARM_MODE');
             this.cargoShips = [];
             this.swarmEnemies = [];
             this.swarmBosses = [];

@@ -9,11 +9,11 @@
 import { CONFIG } from '../utils/config.js';
 
 export class RedBox {
-    constructor(gameWidth, gameHeight) {
+    constructor(gameWidth, gameHeight, configKey = 'CHASE_MODE') {
         this.gameWidth = gameWidth;
         this.gameHeight = gameHeight;
 
-        const cfg = CONFIG.CHASE_MODE;
+        const cfg = CONFIG[configKey];
 
         // Position and size
         this.x = gameWidth / 2;
@@ -28,6 +28,9 @@ export class RedBox {
         this.maxHeight = cfg.redBoxMaxHeight;
         this.minY = cfg.redBoxMinY;
 
+        // Store config key for update method
+        this.configKey = configKey;
+
         // Damage system
         this.damageCount = 0;
         this.slowdownMultiplier = 1.0;
@@ -41,7 +44,7 @@ export class RedBox {
     }
 
     update(deltaTime, waveNumber, isSlowedDown, playerBoostLevel, enemySpeedBoost = 1.0) {
-        const cfg = CONFIG.CHASE_MODE;
+        const cfg = CONFIG[this.configKey];
         const dt = deltaTime / 16; // Normalize to ~60fps
 
         this.playTime += deltaTime;
@@ -104,9 +107,9 @@ export class RedBox {
     }
 
     takeDamage(amount) {
-        const cfg = CONFIG.CHASE_MODE;
+        const cfg = CONFIG[this.configKey];
         this.damageCount += amount;
-        this.flashTimer = cfg.redBoxFlashDuration;
+        this.flashTimer = cfg.redBoxFlashDuration || 300;  // Default 300ms if not in config
 
         // Audio and visual feedback handled by caller
         return false; // Never dies
@@ -114,7 +117,7 @@ export class RedBox {
 
     reset() {
         // Reset to starting position (golden boost effect)
-        const cfg = CONFIG.CHASE_MODE;
+        const cfg = CONFIG[this.configKey];
         this.y = cfg.redBoxStartY;
     }
 
