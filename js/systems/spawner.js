@@ -67,6 +67,7 @@ export class SpawnerSystem {
         this.lastCrateSpawn = 0;
         this.lastPushWallSpawn = 0;
         this.cratesSpawned = 0;
+        this.spreadShotSpawned = false;
     }
 
     update(currentTime, enemies, rings, difficulty = 1, allyCount = 0, modeSpawnMult = 1, walls = null, hasWalls = false, noAllyRings = false) {
@@ -703,6 +704,7 @@ export class SpawnerSystem {
         this.lastCrateSpawn = 0;
         this.lastPushWallSpawn = 0;
         this.cratesSpawned = 0;
+        this.spreadShotSpawned = false;
     }
 
     getDifficulty() {
@@ -842,46 +844,64 @@ export class SpawnerSystem {
             this.swarmSpawnTimer = 0;
         }
 
-        // Spawn first wingman crate immediately (T=0)
-        if (this.cratesSpawned === 0 && playTime >= 0) {
-            this.spawnPowerupCrate(crates, this.gameWidth / 2, 'wingman', 5);
-            this.cratesSpawned++;
+        // Spawn wingmen powerups throughout first 10 seconds (15 total)
+        const wingmanSchedule = [
+            { time: 0, x: 0.5, hits: 5 },      // Center
+            { time: 500, x: 0.3, hits: 3 },    // Left
+            { time: 1000, x: 0.7, hits: 3 },   // Right
+            { time: 1500, x: 0.4, hits: 4 },   // Left-center
+            { time: 2000, x: 0.6, hits: 4 },   // Right-center
+            { time: 2500, x: 0.2, hits: 5 },   // Far left
+            { time: 3000, x: 0.8, hits: 5 },   // Far right
+            { time: 3500, x: 0.5, hits: 6 },   // Center
+            { time: 4000, x: 0.35, hits: 4 },  // Left
+            { time: 4500, x: 0.65, hits: 4 },  // Right
+            { time: 5000, x: 0.25, hits: 5 },  // Left
+            { time: 5500, x: 0.75, hits: 5 },  // Right
+            { time: 6000, x: 0.5, hits: 7 },   // Center
+            { time: 7000, x: 0.4, hits: 6 },   // Left-center
+            { time: 8000, x: 0.6, hits: 6 },   // Right-center
+            { time: 9000, x: 0.3, hits: 8 },   // Left
+            { time: 10000, x: 0.7, hits: 8 }   // Right
+        ];
+
+        for (let i = 0; i < wingmanSchedule.length; i++) {
+            const spawn = wingmanSchedule[i];
+            if (playTime >= spawn.time && this.cratesSpawned === i) {
+                this.spawnPowerupCrate(crates, this.gameWidth * spawn.x, 'wingman', spawn.hits);
+                this.cratesSpawned++;
+                break; // Only spawn one per frame
+            }
         }
 
-        // Spawn second wingman crate (T=1500ms)
-        if (playTime >= 1500 && this.cratesSpawned === 1) {
-            this.spawnPowerupCrate(crates, this.gameWidth * 0.3, 'wingman', 3);
-            this.cratesSpawned++;
-        }
-
-        // Spawn first push wall (T=3000ms)
-        if (playTime >= 3000 && this.lastPushWallSpawn === 0) {
+        // Push walls every 8 seconds
+        const pushWallInterval = 8000;
+        const timeSinceLastPushWall = playTime - this.lastPushWallSpawn;
+        if (this.lastPushWallSpawn === 0 && playTime >= 3000) {
+            // First push wall at 3s
             this.spawnPushWall(pushWalls, 15);
+            this.lastPushWallSpawn = playTime;
+        } else if (timeSinceLastPushWall >= pushWallInterval && this.lastPushWallSpawn > 0) {
+            // Subsequent push walls every 8s
+            this.spawnPushWall(pushWalls, 15 + Math.floor((playTime - 3000) / pushWallInterval) * 5);
             this.lastPushWallSpawn = playTime;
         }
 
-        // Spawn third wingman crate (T=3500ms)
-        if (playTime >= 3500 && this.cratesSpawned === 2) {
-            this.spawnPowerupCrate(crates, this.gameWidth * 0.7, 'wingman', 5);
-            this.cratesSpawned++;
-        }
-
-        // Spawn first boss (T=5000ms, 50 hits)
-        if (playTime >= 5000 && this.bossIndex === 0) {
+        // Spawn first boss (T=12000ms, 50 hits)
+        if (playTime >= 12000 && this.bossIndex === 0) {
             this.spawnSwarmBoss(swarmBosses, 50);
             this.bossIndex++;
             this.lastBossSpawn = playTime;
         }
 
-        // Spawn spread + wingman crates (T=6000ms)
-        if (playTime >= 6000 && this.cratesSpawned === 3) {
-            this.spawnPowerupCrate(crates, this.gameWidth * 0.25, 'spreadshot', 50);
-            this.spawnPowerupCrate(crates, this.gameWidth * 0.75, 'wingman', 20);
-            this.cratesSpawned += 2;
+        // Spawn spread shot crate (T=6000ms)
+        if (playTime >= 6000 && !this.spreadShotSpawned) {
+            this.spawnPowerupCrate(crates, this.gameWidth * 0.5, 'spreadshot', 50);
+            this.spreadShotSpawned = true;
         }
 
-        // Spawn second boss (T=15000ms, 250 hits)
-        if (playTime >= 15000 && this.bossIndex === 1) {
+        // Spawn second boss (T=25000ms, 250 hits)
+        if (playTime >= 25000 && this.bossIndex === 1) {
             this.spawnSwarmBoss(swarmBosses, 250);
             this.bossIndex++;
             this.lastBossSpawn = playTime;

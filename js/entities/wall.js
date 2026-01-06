@@ -205,12 +205,11 @@ export class Wall {
                 this.active = false;
                 return;
             }
+        } else if (!this.typeData.pushable || !this.triggered) {
+            // Normal downward movement (only if not being pushed)
+            this.y += this.speed * dt;
         }
-
-        // Normal downward movement (reduced when being pushed up)
-        const effectiveSpeed = this.pushVelocity > 0 ?
-            Math.max(0, this.speed - this.pushVelocity * 0.5) : this.speed;
-        this.y += effectiveSpeed * dt;
+        // Note: Triggered push walls with no velocity don't move (waiting for hits)
 
         // Pulse animation uses real time (not affected by boost)
         this.pulseTimer += 0.08 * realDt;
