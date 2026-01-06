@@ -42,6 +42,7 @@ export class Player {
         this.facingUp = true;  // true = firing up, false = firing down
         this.downwardFireTimer = 0;
         this.downwardFireRate = 150;  // Fire downward every 150ms when not touching
+        this.hasEverTouched = false;  // Track if player has touched screen at least once
 
         // Flag for vertical movement (Chase mode)
         this.allowVerticalMovement = false;
@@ -68,6 +69,7 @@ export class Player {
 
         // Update facing direction based on touch state
         if (targetPos) {
+            this.hasEverTouched = true;
             this.facingUp = true;
             this.x = targetPos.x;
 
@@ -76,7 +78,10 @@ export class Player {
                 this.y = targetPos.y;
             }
         } else {
-            this.facingUp = false;
+            // Only face down if player has touched at least once
+            if (this.hasEverTouched) {
+                this.facingUp = false;
+            }
         }
 
         // Clamp position to bounds
@@ -278,5 +283,8 @@ export class Player {
         this.lastFireTime = 0;
         this.invincibleTimer = 0;
         this.boostLevel = 0;
+        this.facingUp = true;
+        this.hasEverTouched = false;
+        this.downwardFireTimer = 0;
     }
 }
