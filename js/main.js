@@ -2554,21 +2554,7 @@ class Game {
                 }
             }
 
-            // Falling cargo ships (engine destroyed) vs swarm bosses
-            for (const ship of this.cargoShips) {
-                if (!ship.active || !ship.engineDestroyed) continue;
-
-                for (const boss of this.swarmBosses) {
-                    if (CollisionSystem.checkAABB(ship.getBounds(), boss.getBounds())) {
-                        boss.active = false;
-                        ship.active = false;
-                        this.particles.explosion(boss.x, boss.y, 3);
-                        this.audio.playExplosion();
-                        this.screenFx.shake(15, 0.5);
-                        this.score += 1000;
-                    }
-                }
-            }
+            // Falling cargo ships pass through bosses (no collision)
         }
     }
 

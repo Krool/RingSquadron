@@ -84,9 +84,9 @@ export class RedBox {
             this.y = maxHeightY;
         }
 
-        // Max Y is the starting position (don't go below)
-        if (this.y > this.initialY) {
-            this.y = this.initialY;
+        // Max Y is the bottom of screen (can be pushed all the way down)
+        if (this.y > this.gameHeight) {
+            this.y = this.gameHeight;
         }
     }
 

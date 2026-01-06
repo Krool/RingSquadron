@@ -118,7 +118,7 @@ export class CargoShip {
         // Calculate torque based on perpendicular distance from center
         // Cross product: torque = offsetX * vy - offsetY * vx (bullet moving down, so vy > 0)
         // For simplicity, use offsetX as the main contributor (horizontal distance from center)
-        const torque = offsetX * 0.002;  // Scale factor for rotation intensity
+        const torque = offsetX * 0.0005;  // Scale factor for rotation intensity (reduced 75% for heavier feel)
 
         // Add to angular velocity
         this.angularVelocity += torque;
