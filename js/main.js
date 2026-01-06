@@ -2430,6 +2430,58 @@ class Game {
                     this.screenFx.shake(30, 1.0);
                 }
             }
+
+            // Falling cargo ships (engine destroyed) vs player
+            for (const ship of this.cargoShips) {
+                if (!ship.active || !ship.engineDestroyed) continue;
+                if (CollisionSystem.checkAABB(this.player.getBounds(), ship.getBounds())) {
+                    this.swarmLives--;
+                    ship.active = false;
+                    this.particles.explosion(ship.x, ship.y, 3);
+                    this.audio.playExplosion();
+                    this.screenFx.shake(15, 0.5);
+                    this.floatingText.add(this.player.x, this.player.y - 40, `${this.swarmLives} LIVES`, {
+                        color: '#ffdd00',
+                        size: 14,
+                        duration: 1000
+                    });
+
+                    if (this.swarmLives <= 0) {
+                        this.player.active = false;
+                        this.state = 'gameover';
+                    }
+                }
+            }
+
+            // Falling cargo ships (engine destroyed) vs swarm enemies
+            for (const ship of this.cargoShips) {
+                if (!ship.active || !ship.engineDestroyed) continue;
+
+                for (let i = this.swarmEnemies.length - 1; i >= 0; i--) {
+                    const enemy = this.swarmEnemies[i];
+                    if (CollisionSystem.checkAABB(ship.getBounds(), enemy.getBounds())) {
+                        this.swarmEnemies.splice(i, 1);
+                        this.particles.explosion(enemy.x, enemy.y, 2);
+                        this.score += 10;
+                    }
+                }
+            }
+
+            // Falling cargo ships (engine destroyed) vs swarm bosses
+            for (const ship of this.cargoShips) {
+                if (!ship.active || !ship.engineDestroyed) continue;
+
+                for (const boss of this.swarmBosses) {
+                    if (CollisionSystem.checkAABB(ship.getBounds(), boss.getBounds())) {
+                        boss.active = false;
+                        ship.active = false;
+                        this.particles.explosion(boss.x, boss.y, 3);
+                        this.audio.playExplosion();
+                        this.screenFx.shake(15, 0.5);
+                        this.score += 1000;
+                    }
+                }
+            }
         }
     }
 

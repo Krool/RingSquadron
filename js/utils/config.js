@@ -301,7 +301,7 @@ export const CONFIG = {
         cargoShipEngineHealth: 30,
         cargoShipDamage: 25,
         cargoShipDriftSpeed: 0.8,
-        cargoShipFallSpeedMultiplier: 3, // 3x faster fall when engine destroyed
+        cargoShipFallSpeedMultiplier: 3.9, // 3.9x faster fall when engine destroyed (30% faster than 3x)
 
         // Swarm enemies (from Swarm mode)
         swarmSpawnRate: 50,
