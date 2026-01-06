@@ -695,6 +695,14 @@ export class SpawnerSystem {
         this.lastGoldenBoostSpawn = 0;
         this.lastCargoShipSpawn = 0;
         this.lastEnemySpawn = 0;
+
+        // Swarm mode timers
+        this.swarmSpawnTimer = 0;
+        this.lastBossSpawn = 0;
+        this.bossIndex = 0;
+        this.lastCrateSpawn = 0;
+        this.lastPushWallSpawn = 0;
+        this.cratesSpawned = 0;
     }
 
     getDifficulty() {

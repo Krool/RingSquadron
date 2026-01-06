@@ -322,6 +322,23 @@ export class Wall {
         // Boost track has arrows instead of text
         if (typeData.boosts) {
             this.drawBoostArrows(ctx, left, top);
+        } else if (typeData.hitCounter && !this.triggered) {
+            // Hit counter for hit-counter push walls (Swarm mode) - replaces text
+            // Center line pattern
+            ctx.strokeStyle = this.adjustBrightness(typeData.color, 0.7);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(left + stripeWidth + 5, this.y);
+            ctx.lineTo(left + this.width - stripeWidth - 5, this.y);
+            ctx.stroke();
+
+            // Display hits remaining instead of "PUSH" text
+            const remaining = this.hitsRequired - this.hitCount;
+            ctx.fillStyle = '#ffff00';
+            ctx.font = `bold 18px ${CONFIG.FONT_FAMILY}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(remaining, this.x, this.y);
         } else {
             // Center line pattern
             ctx.strokeStyle = this.adjustBrightness(typeData.color, 0.7);
@@ -344,21 +361,13 @@ export class Wall {
             this.drawHealthBar(ctx, left, top);
         }
 
-        // Push velocity indicator for pushable walls
+        // Push velocity indicator for pushable walls (when active)
         if (typeData.pushable && this.pushVelocity > 0) {
             ctx.fillStyle = `rgba(255, 200, 100, ${Math.min(1, this.pushVelocity / 5)})`;
             ctx.font = `bold 8px ${CONFIG.FONT_FAMILY}`;
-            ctx.fillText(`↑${this.pushVelocity.toFixed(1)}`, this.x, this.y - 20);
-        }
-
-        // Hit counter for hit-counter push walls (Swarm mode)
-        if (typeData.hitCounter && !this.triggered) {
-            const remaining = this.hitsRequired - this.hitCount;
-            ctx.fillStyle = '#ffff00';
-            ctx.font = `bold 14px ${CONFIG.FONT_FAMILY}`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(remaining, this.x, this.y);
+            ctx.fillText(`↑${this.pushVelocity.toFixed(1)}`, this.x, this.y - 20);
         }
 
         ctx.textAlign = 'left';
