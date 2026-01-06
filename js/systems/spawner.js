@@ -984,10 +984,119 @@ export class SpawnerSystem {
     /**
      * Spawn a hit-counter push wall in specified lane
      */
-    spawnPushWall(pushWalls, hitsRequired, lane) {
+    spawnPushWall(pushWalls, hitsRequired, lane, widthMultiplier = 1.0) {
         const laneWidth = this.gameWidth / 3;
         const x = laneWidth * lane + laneWidth / 2;
-        const wall = new Wall(x, -40, lane, 'HIT_COUNTER_PUSH', hitsRequired);
+        const wall = new Wall(x, -40, lane, 'HIT_COUNTER_PUSH', hitsRequired, widthMultiplier);
         pushWalls.push(wall);
+    }
+
+    // ========================================
+    // CHASE SWARM MODE SPAWNING
+    // ========================================
+
+    /**
+     * Update Chase Swarm mode spawning - combines Chase and Swarm mechanics
+     */
+    updateChaseSwarmSpawning(currentTime, swarmEnemies, swarmBosses, cargoShips, pushWalls, walls) {
+        const cfg = CONFIG.CHASE_SWARM_MODE;
+        const playTime = currentTime;
+
+        // Spawn swarm enemies continuously (every 50ms)
+        this.swarmSpawnTimer += 16;
+        if (this.swarmSpawnTimer >= cfg.swarmSpawnRate) {
+            this.spawnChaseSwarmWave(swarmEnemies);
+            this.swarmSpawnTimer = 0;
+        }
+
+        // Spawn cargo ships (trucks) periodically
+        if (!this.lastCargoSpawn) this.lastCargoSpawn = 0;
+        if (playTime - this.lastCargoSpawn >= cfg.cargoShipBaseInterval) {
+            this.spawnCargoShip(cargoShips, 1);
+            this.lastCargoSpawn = playTime;
+        }
+
+        // Spawn push walls periodically
+        if (!this.lastPushWallSpawn) this.lastPushWallSpawn = 0;
+        if (playTime - this.lastPushWallSpawn >= cfg.pushWallInterval) {
+            const lane = Math.floor(Math.random() * 3);
+            const hitsRequired = 15;
+            this.spawnPushWall(pushWalls, hitsRequired, lane, cfg.pushWallWidthMultiplier);
+            this.lastPushWallSpawn = playTime;
+        }
+
+        // Spawn boost pads periodically
+        if (!this.lastBoostPadSpawn) this.lastBoostPadSpawn = 0;
+        if (playTime - this.lastBoostPadSpawn >= cfg.boostPadInterval) {
+            const lane = Math.floor(Math.random() * 3);
+            this.spawnBoostPad(walls, lane);
+            this.lastBoostPadSpawn = playTime;
+        }
+
+        // Spawn first boss (T=30000ms, 100 hits)
+        if (playTime >= 30000 && this.bossIndex === 0) {
+            this.spawnChaseSwarmBoss(swarmBosses, cfg.bossHealthBase);
+            this.bossIndex++;
+            this.lastBossSpawn = playTime;
+        }
+
+        // Continue spawning bosses (every 20s after first boss)
+        if (this.bossIndex >= 1 && playTime - this.lastBossSpawn >= cfg.bossSpawnInterval) {
+            const health = Math.pow(cfg.bossHealthScaling, this.bossIndex) * cfg.bossHealthBase;
+            this.spawnChaseSwarmBoss(swarmBosses, health);
+            this.bossIndex++;
+            this.lastBossSpawn = playTime;
+        }
+    }
+
+    /**
+     * Spawn a wave of swarm enemies (with homing disabled)
+     */
+    spawnChaseSwarmWave(swarmEnemies) {
+        import('../entities/swarmenemy.js').then(module => {
+            const SwarmEnemy = module.SwarmEnemy;
+            const cfg = CONFIG.CHASE_SWARM_MODE;
+            for (let i = 0; i < cfg.swarmPerSpawn; i++) {
+                const x = Math.random() * this.gameWidth;
+                const y = -10;
+                swarmEnemies.push(new SwarmEnemy(x, y, true)); // true = disable homing
+            }
+        });
+    }
+
+    /**
+     * Spawn a Chase Swarm boss (with homing disabled)
+     */
+    spawnChaseSwarmBoss(swarmBosses, health) {
+        import('../entities/swarmboss.js').then(module => {
+            const SwarmBoss = module.SwarmBoss;
+            const x = this.gameWidth / 2;
+            const y = -50;
+            swarmBosses.push(new SwarmBoss(x, y, health, true)); // true = disable homing
+        });
+    }
+
+    /**
+     * Spawn a cargo ship in a random lane
+     */
+    spawnCargoShip(cargoShips, waveNumber) {
+        import('../entities/cargoship.js').then(module => {
+            const CargoShip = module.CargoShip;
+            const cfg = CONFIG.CHASE_SWARM_MODE;
+            const lane = Math.floor(Math.random() * 3);
+            const laneWidth = this.gameWidth / 3;
+            const x = laneWidth * lane + laneWidth / 2;
+            cargoShips.push(new CargoShip(x, lane, waveNumber, cfg.cargoShipFallSpeedMultiplier));
+        });
+    }
+
+    /**
+     * Spawn a boost pad in specified lane
+     */
+    spawnBoostPad(walls, lane) {
+        const laneWidth = this.gameWidth / 3;
+        const x = laneWidth * lane + laneWidth / 2;
+        const wall = new Wall(x, -40, lane, 'BOOST');
+        walls.push(wall);
     }
 }

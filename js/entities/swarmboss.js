@@ -9,7 +9,7 @@
 import { CONFIG } from '../utils/config.js';
 
 export class SwarmBoss {
-    constructor(x, y, health) {
+    constructor(x, y, health, disableHoming = false) {
         this.x = x;
         this.y = y;
         this.health = health;
@@ -20,6 +20,7 @@ export class SwarmBoss {
         this.homingActive = false;
         this.homingThreshold = CONFIG.GAME_HEIGHT * 0.3;
         this.flashTimer = 0;
+        this.disableHoming = disableHoming;  // Option to disable homing
     }
 
     update(deltaTime, playerX, playerY) {
@@ -33,13 +34,13 @@ export class SwarmBoss {
         // Always move down
         this.y += this.speed * dt;
 
-        // Activate homing
-        if (this.y >= this.homingThreshold) {
+        // Activate homing (unless disabled)
+        if (!this.disableHoming && this.y >= this.homingThreshold) {
             this.homingActive = true;
         }
 
-        // Home toward player (slightly slower than regular homing)
-        if (this.homingActive) {
+        // Home toward player (slightly slower than regular homing, only if enabled)
+        if (!this.disableHoming && this.homingActive) {
             const dx = playerX - this.x;
             const dy = playerY - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);

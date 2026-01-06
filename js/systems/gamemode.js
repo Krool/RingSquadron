@@ -36,6 +36,23 @@ export const GAME_MODES = {
             canWin: false           // Endless mode
         }
     },
+    CHASE_SWARM: {
+        name: 'Chase Swarm',
+        description: 'Outrun death while fighting the horde!',
+        icon: '▲≋',
+        rules: {
+            waves: Infinity,        // Endless survival
+            lives: 5,               // 5 hits before death
+            goldMultiplier: 0,      // No gold
+            difficultyRamp: 'time', // Time-based scaling
+            bossEvery: 0,           // No traditional bosses
+            hasWalls: true,         // Push walls and boost pads
+            noAllyRings: true,      // No rings
+            noShop: true,           // No shop
+            isChaseSwarm: true,     // Flag for Chase Swarm-specific logic
+            canWin: false           // Endless mode
+        }
+    },
     CAMPAIGN: {
         name: 'Campaign',
         description: '12 puzzle levels, master the rings',
@@ -441,6 +458,8 @@ export class ModeSelectUI {
     getModeColor(modeKey) {
         const colors = {
             CHASE: '#ff3333',       // Red for danger
+            SWARM: '#ff66ff',       // Purple for swarm
+            CHASE_SWARM: '#ff6633', // Orange-red for hybrid
             CAMPAIGN: '#ffdd00',
             WALL: '#888899',
             EDITOR: '#ff8800',

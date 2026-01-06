@@ -276,5 +276,53 @@ export const CONFIG = {
         // Scores
         swarmEnemyScore: 10,
         swarmBossScore: 1000
+    },
+
+    // ========================================
+    // CHASE SWARM MODE (Hybrid)
+    // ========================================
+    CHASE_SWARM_MODE: {
+        // Red Box (from Chase mode)
+        redBoxStartY: 680,
+        redBoxSafetyTime: 5000,          // 5s grace period
+        redBoxBaseGrowthRate: 0.08,
+        redBoxWaveScaling: 0.015,
+        redBoxMaxHeight: 280,
+        redBoxMinY: 420,
+        redBoxPushAmount: 50,
+
+        // Red Box speed increase from enemies
+        enemySpeedBoost: 0.02,           // +2% speed per enemy that reaches box
+        bossSpeedBoost: 0.1,             // +10% speed per boss that reaches box
+
+        // Cargo Ships (trucks)
+        cargoShipBaseInterval: 8000,     // Slower spawn rate
+        cargoShipMinInterval: 4000,
+        cargoShipEngineHealth: 30,
+        cargoShipDamage: 25,
+        cargoShipDriftSpeed: 0.8,
+        cargoShipFallSpeedMultiplier: 3, // 3x faster fall when engine destroyed
+
+        // Swarm enemies (from Swarm mode)
+        swarmSpawnRate: 50,
+        swarmPerSpawn: 10,
+        swarmEnemySpeed: 1.2,
+        swarmEnemyNoHoming: true,        // Don't track player
+
+        // Bosses
+        bossSpawnInterval: 20000,        // 20s between bosses
+        bossHealthBase: 100,
+        bossHealthScaling: 2,
+        bossNoHoming: true,              // Don't track player
+
+        // Push walls
+        pushWallInterval: 12000,         // 12s between push walls
+        pushWallWidthMultiplier: 1.1,    // 10% wider
+
+        // Boost pads
+        boostPadInterval: 6000,
+
+        // Lives
+        playerLives: 5
     }
 };

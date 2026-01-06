@@ -39,7 +39,7 @@ export class RedBox {
         this.playTime = 0;
     }
 
-    update(deltaTime, waveNumber, isSlowedDown, playerBoostLevel) {
+    update(deltaTime, waveNumber, isSlowedDown, playerBoostLevel, enemySpeedBoost = 1.0) {
         const cfg = CONFIG.CHASE_MODE;
         const dt = deltaTime / 16; // Normalize to ~60fps
 
@@ -63,9 +63,9 @@ export class RedBox {
             return;
         }
 
-        // Calculate growth rate with wave scaling
+        // Calculate growth rate with wave scaling and enemy speed boost
         const waveMultiplier = 1 + (waveNumber * cfg.redBoxWaveScaling);
-        const effectiveGrowthRate = this.baseGrowthRate * waveMultiplier * this.slowdownMultiplier;
+        const effectiveGrowthRate = this.baseGrowthRate * waveMultiplier * this.slowdownMultiplier * enemySpeedBoost;
 
         // Calculate shrink rate from player boost (negative growth = shrinking)
         // Each boost level adds 0.15 pixels/frame of shrinkage

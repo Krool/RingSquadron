@@ -140,7 +140,7 @@ export const WALL_TYPES = {
 };
 
 export class Wall {
-    constructor(x, y, lane, type = 'SOLID', hitsRequired = null) {
+    constructor(x, y, lane, type = 'SOLID', hitsRequired = null, widthMultiplier = 1.0) {
         this.x = x;
         this.y = y;
         this.lane = lane; // 0 = left, 1 = center, 2 = right
@@ -150,7 +150,7 @@ export class Wall {
 
         // Dimensions - span most of the lane width
         const laneWidth = CONFIG.GAME_WIDTH / 3;
-        this.width = laneWidth - 20; // Leave small gaps between lanes
+        this.width = (laneWidth - 20) * widthMultiplier; // Leave small gaps between lanes, apply multiplier
         this.height = 30;
 
         // Movement - same speed as rings

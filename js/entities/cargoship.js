@@ -11,7 +11,7 @@ import { CONFIG } from '../utils/config.js';
 import { SPRITES } from '../utils/sprites.js';
 
 export class CargoShip {
-    constructor(x, lane, waveNumber) {
+    constructor(x, lane, waveNumber, fallSpeedMultiplier = 1.5) {
         const cfg = CONFIG.CHASE_MODE;
 
         this.x = x;
@@ -33,6 +33,7 @@ export class CargoShip {
         this.state = 'spawning';  // spawning -> drifting -> locked -> destroyed
         this.driftSpeed = cfg.cargoShipDriftSpeed;
         this.lockY = cfg.cargoShipLockY;
+        this.fallSpeedMultiplier = fallSpeedMultiplier;  // Multiplier for fall speed when destroyed
 
         // Visual
         this.flashTimer = 0;
@@ -69,7 +70,7 @@ export class CargoShip {
 
             case 'destroyed':
                 // Drift down toward red box faster, reacting to player boost
-                this.y += this.driftSpeed * 1.5 * boostedDtNormalized;
+                this.y += this.driftSpeed * this.fallSpeedMultiplier * boostedDtNormalized;
                 break;
         }
 

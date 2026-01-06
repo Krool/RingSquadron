@@ -9,7 +9,7 @@
 import { CONFIG } from '../utils/config.js';
 
 export class SwarmEnemy {
-    constructor(x, y) {
+    constructor(x, y, disableHoming = false) {
         this.x = x;
         this.y = y;
         this.size = 4;  // 4px dot (30% larger for easier hitting)
@@ -18,6 +18,7 @@ export class SwarmEnemy {
         this.active = true;
         this.homingActive = false;  // Activates at 30% height
         this.homingThreshold = CONFIG.GAME_HEIGHT * 0.3;
+        this.disableHoming = disableHoming;  // Option to disable homing
     }
 
     update(deltaTime, playerX, playerY) {
@@ -26,13 +27,13 @@ export class SwarmEnemy {
         // Always move down
         this.y += this.speed * dt;
 
-        // Activate homing when 30% down screen
-        if (this.y >= this.homingThreshold) {
+        // Activate homing when 30% down screen (unless disabled)
+        if (!this.disableHoming && this.y >= this.homingThreshold) {
             this.homingActive = true;
         }
 
-        // Home toward player
-        if (this.homingActive) {
+        // Home toward player (only if homing is enabled)
+        if (!this.disableHoming && this.homingActive) {
             const dx = playerX - this.x;
             const dy = playerY - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);

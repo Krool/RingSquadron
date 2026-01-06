@@ -292,6 +292,21 @@ class Game {
             this.player.fireRate = CONFIG.PLAYER_FIRE_RATE;
         }
 
+        // Initialize Chase Swarm mode entities (hybrid mode)
+        if (rules.isChaseSwarm) {
+            this.redBox = new RedBox(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+            this.cargoShips = [];
+            this.swarmEnemies = [];
+            this.swarmBosses = [];
+            this.pushWalls = [];
+            this.walls = [];  // For boost pads
+            this.swarmLives = 5;
+            this.redBoxEnemySpeedBoost = 1.0;  // Tracks speed boost from enemies reaching red box
+            this.player.health = 1;  // 1 HP, lives system
+            this.player.allowVerticalMovement = true;
+            this.player.fireRate = CONFIG.PLAYER_FIRE_RATE / 2;  // Double fire rate
+        }
+
         // Apply upgrades to player
         this.shop.applyUpgrades(this.player);
     }
@@ -1087,6 +1102,90 @@ class Game {
                     this.rocketExplosions.splice(i, 1);
                 }
             }
+        } else if (rules.isChaseSwarm) {
+            // Chase Swarm mode: Hybrid of Chase and Swarm mechanics
+
+            // Update red box with enemy speed boost
+            if (this.redBox) {
+                const isSlowed = false;  // No slowdown mechanic in Chase Swarm
+                this.redBox.update(dt, 1, isSlowed, 0, this.redBoxEnemySpeedBoost);
+            }
+
+            // Update cargo ships
+            for (let i = this.cargoShips.length - 1; i >= 0; i--) {
+                const ship = this.cargoShips[i];
+                ship.update(dt, dt, this.player.y);
+                if (!ship.active) {
+                    this.cargoShips.splice(i, 1);
+                }
+            }
+
+            // Update swarm enemies (no homing)
+            for (let i = this.swarmEnemies.length - 1; i >= 0; i--) {
+                const enemy = this.swarmEnemies[i];
+                enemy.update(dt, this.player.x, this.player.y);
+
+                // Check if enemy reached red box
+                if (this.redBox && enemy.y >= this.redBox.y) {
+                    const cfg = CONFIG.CHASE_SWARM_MODE;
+                    this.redBoxEnemySpeedBoost += cfg.enemySpeedBoost;
+                    enemy.active = false;
+                }
+
+                if (!enemy.active) {
+                    this.swarmEnemies.splice(i, 1);
+                }
+            }
+
+            // Update swarm bosses (no homing)
+            for (let i = this.swarmBosses.length - 1; i >= 0; i--) {
+                const boss = this.swarmBosses[i];
+                boss.update(dt, this.player.x, this.player.y);
+
+                // Check if boss reached red box
+                if (this.redBox && boss.y >= this.redBox.y) {
+                    const cfg = CONFIG.CHASE_SWARM_MODE;
+                    this.redBoxEnemySpeedBoost += cfg.bossSpeedBoost;
+                    boss.active = false;
+                }
+
+                if (!boss.active) {
+                    this.swarmBosses.splice(i, 1);
+                }
+            }
+
+            // Update push walls
+            for (let i = this.pushWalls.length - 1; i >= 0; i--) {
+                const wall = this.pushWalls[i];
+                wall.update(dt, dt);
+                if (!wall.active) {
+                    this.pushWalls.splice(i, 1);
+                }
+            }
+
+            // Update boost pad walls
+            for (let i = this.walls.length - 1; i >= 0; i--) {
+                const wall = this.walls[i];
+                wall.update(dt, dt);
+                if (!wall.active) {
+                    this.walls.splice(i, 1);
+                }
+            }
+
+            // Chase Swarm spawning
+            this.spawner.updateChaseSwarmSpawning(
+                currentTime,
+                this.swarmEnemies,
+                this.swarmBosses,
+                this.cargoShips,
+                this.pushWalls,
+                this.walls
+            );
+
+            // Enable bullet bouncing for player bullets
+            for (const bullet of this.playerBullets) {
+                bullet.canBounce = true;
+            }
         } else if (!this.bossActive) {
             // Normal mode spawning
             const difficulty = this.spawner.getDifficulty() * this.gameMode.getDifficultyMultiplier(this.currentWave);
@@ -1123,41 +1222,16 @@ class Game {
         const playerBullets = this.player.update(dt, target, currentTime);
 
         // In Swarm mode, collect auto-fire bullets from player.update()
-        if (rules.isSwarm && playerBullets.length > 0) {
-            // Apply spread shot if unlocked
-            if (this.permanentUpgrades.hasSpreadShot) {
-                // Replace single bullet with spread3 pattern
-                const singleBullet = playerBullets[0];
-                playerBullets.length = 0; // Clear array
-
-                // Create spread3: left, center, right
-                const angles = [-0.3, 0, 0.3]; // Spread angles in radians
-                for (const angle of angles) {
-                    const vx = Math.sin(angle) * 8;
-                    const vy = -8;  // Upward
-                    const bullet = new Bullet(singleBullet.x, singleBullet.y, true, singleBullet.damage, vx, vy);
-                    bullet.canBounce = true;
-                    playerBullets.push(bullet);
-                }
-            } else {
-                // Enable bouncing for single bullet
-                for (const bullet of playerBullets) {
-                    bullet.canBounce = true;
-                }
-            }
-
-            // Apply rocket launcher if unlocked
-            if (this.permanentUpgrades.hasRocketLauncher) {
-                for (const bullet of playerBullets) {
-                    bullet.isRocket = true;
-                    bullet.splashRadius = 20;  // Explosion radius (75% smaller)
-                }
+        if ((rules.isSwarm || rules.isChaseSwarm) && playerBullets.length > 0) {
+            // Enable bouncing for all bullets
+            for (const bullet of playerBullets) {
+                bullet.canBounce = true;
             }
 
             this.playerBullets.push(...playerBullets);
             this.audio.playShoot();
             this.haptics.light();
-        } else if (!rules.isSwarm) {
+        } else if (!rules.isSwarm && !rules.isChaseSwarm) {
             // Check for swipe to cycle weapons (non-Swarm modes)
             const swipeDir = this.input.checkHorizontalSwipe();
             if (swipeDir !== 0) {
@@ -2003,6 +2077,211 @@ class Game {
                 }
             }
         }
+
+        // Chase Swarm mode collisions
+        if (rules.isChaseSwarm) {
+            // Player bullets vs swarm enemies
+            for (let i = this.playerBullets.length - 1; i >= 0; i--) {
+                const bullet = this.playerBullets[i];
+                if (!bullet.active) continue;
+
+                for (const enemy of this.swarmEnemies) {
+                    if (!enemy.active) continue;
+                    if (CollisionSystem.checkAABB(bullet.getBounds(), enemy.getBounds())) {
+                        bullet.active = false;
+                        enemy.takeDamage();
+                        this.score += 10;
+                        this.particles.spark(enemy.x, enemy.y, '#ff6666');
+                        break;
+                    }
+                }
+            }
+
+            // Player bullets vs swarm bosses
+            for (const bullet of this.playerBullets) {
+                if (!bullet.active) continue;
+
+                for (const boss of this.swarmBosses) {
+                    if (!boss.active) continue;
+                    if (CollisionSystem.checkAABB(bullet.getBounds(), boss.getBounds())) {
+                        bullet.active = false;
+                        const killed = boss.takeDamage(1);
+                        if (killed) {
+                            this.score += 1000;
+                            this.particles.explosion(boss.x, boss.y, 3);
+                            this.audio.playExplosion();
+                            this.screenFx.shake(10, 0.3);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Player bullets vs cargo ship engines (ONLY engines)
+            for (let i = this.playerBullets.length - 1; i >= 0; i--) {
+                const bullet = this.playerBullets[i];
+                if (!bullet.active) continue;
+
+                for (const ship of this.cargoShips) {
+                    if (!ship.active || ship.engineDestroyed) continue;
+                    const engineBounds = ship.getEngineBounds();
+                    if (CollisionSystem.checkAABB(bullet.getBounds(), engineBounds)) {
+                        bullet.active = false;
+                        const destroyed = ship.takeDamage(bullet.damage);
+                        if (destroyed) {
+                            this.score += 50;
+                            this.particles.explosion(ship.x, ship.y, 2);
+                            this.audio.playExplosion();
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Player bullets vs push walls (count hits and push)
+            for (const bullet of this.playerBullets) {
+                if (!bullet.active) continue;
+
+                for (const wall of this.pushWalls) {
+                    if (!wall.active) continue;
+                    if (CollisionSystem.checkAABB(bullet.getBounds(), wall.getBounds())) {
+                        bullet.active = false;
+
+                        if (!wall.triggered) {
+                            const triggered = wall.registerBulletHit();
+                            if (triggered) {
+                                this.audio.playPowerUp();
+                                this.screenFx.shake(5, 0.2);
+                            }
+                        } else {
+                            wall.push(2);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Push walls vs swarm enemies (kill on contact)
+            for (const wall of this.pushWalls) {
+                if (!wall.triggered || wall.pushVelocity <= 0) continue;
+
+                for (let i = this.swarmEnemies.length - 1; i >= 0; i--) {
+                    const enemy = this.swarmEnemies[i];
+                    if (CollisionSystem.checkAABB(wall.getBounds(), enemy.getBounds())) {
+                        this.swarmEnemies.splice(i, 1);
+                        this.particles.explosion(enemy.x, enemy.y, 1);
+                        this.score += 10;
+                    }
+                }
+
+                for (const boss of this.swarmBosses) {
+                    if (CollisionSystem.checkAABB(wall.getBounds(), boss.getBounds())) {
+                        boss.active = false;
+                        this.particles.explosion(boss.x, boss.y, 3);
+                        this.score += 1000;
+                    }
+                }
+            }
+
+            // Push walls vs cargo ship engines (destroy engine only)
+            for (const wall of this.pushWalls) {
+                if (!wall.triggered || wall.pushVelocity <= 0) continue;
+
+                for (const ship of this.cargoShips) {
+                    if (!ship.active || ship.engineDestroyed) continue;
+                    const engineBounds = ship.getEngineBounds();
+                    if (CollisionSystem.checkAABB(wall.getBounds(), engineBounds)) {
+                        ship.takeDamage(ship.engineHealth);  // Destroy engine
+                        this.particles.explosion(ship.x, ship.y, 2);
+                        this.audio.playExplosion();
+                    }
+                }
+            }
+
+            // Player vs boost pads
+            for (let i = this.walls.length - 1; i >= 0; i--) {
+                const wall = this.walls[i];
+                if (!wall.active || !wall.isBoost()) continue;
+                if (CollisionSystem.checkAABB(this.player.getBounds(), wall.getBounds())) {
+                    // Push red box down
+                    if (this.redBox) {
+                        const cfg = CONFIG.CHASE_SWARM_MODE;
+                        this.redBox.y += cfg.redBoxPushAmount;
+                        if (this.redBox.y > CONFIG.GAME_HEIGHT - 50) {
+                            this.redBox.y = CONFIG.GAME_HEIGHT - 50;
+                        }
+                    }
+                    wall.active = false;
+                    this.particles.spark(wall.x, wall.y, '#44ff44');
+                    this.audio.playPowerUp();
+                }
+            }
+
+            // Player vs red box (game over)
+            if (this.redBox && this.redBox.checkPlayerCollision(this.player)) {
+                this.player.active = false;
+                this.state = 'gameover';
+                this.particles.explosion(this.player.x, this.player.y, 3);
+                this.audio.playExplosion();
+                this.screenFx.shake(30, 1.0);
+            }
+
+            // Cargo ships vs red box (push down or speed up based on engine state)
+            for (let i = this.cargoShips.length - 1; i >= 0; i--) {
+                const ship = this.cargoShips[i];
+                if (!ship.active || !this.redBox) continue;
+
+                if (ship.checkRedBoxCollision(this.redBox)) {
+                    if (ship.engineDestroyed) {
+                        // Engine destroyed: push red box down
+                        const cfg = CONFIG.CHASE_SWARM_MODE;
+                        this.redBox.y += cfg.redBoxPushAmount;
+                        if (this.redBox.y > CONFIG.GAME_HEIGHT - 50) {
+                            this.redBox.y = CONFIG.GAME_HEIGHT - 50;
+                        }
+                        this.particles.explosion(ship.x, ship.y, 2);
+                    } else {
+                        // Engine intact: speed up red box
+                        const cfg = CONFIG.CHASE_SWARM_MODE;
+                        this.redBoxEnemySpeedBoost += cfg.enemySpeedBoost * 2;  // 2x boost for cargo ships
+                    }
+                    ship.active = false;
+                }
+            }
+
+            // Swarm enemies vs player
+            for (let i = this.swarmEnemies.length - 1; i >= 0; i--) {
+                const enemy = this.swarmEnemies[i];
+                if (CollisionSystem.checkAABB(this.player.getBounds(), enemy.getBounds())) {
+                    this.swarmEnemies.splice(i, 1);
+                    this.swarmLives--;
+                    this.particles.damageHit(this.player.x, this.player.y);
+                    this.audio.playDamage();
+                    this.screenFx.shake(10, 0.3);
+                    this.floatingText.add(this.player.x, this.player.y - 40, `${this.swarmLives} LIVES`, {
+                        color: '#ffdd00',
+                        size: 14,
+                        duration: 1000
+                    });
+
+                    if (this.swarmLives <= 0) {
+                        this.player.active = false;
+                        this.state = 'gameover';
+                    }
+                }
+            }
+
+            // Swarm boss vs player
+            for (const boss of this.swarmBosses) {
+                if (CollisionSystem.checkAABB(this.player.getBounds(), boss.getBounds())) {
+                    this.player.active = false;
+                    this.state = 'gameover';
+                    this.particles.explosion(this.player.x, this.player.y, 3);
+                    this.audio.playExplosion();
+                    this.screenFx.shake(30, 1.0);
+                }
+            }
+        }
     }
 
     // Calculate ally damage multiplier based on total ally count
@@ -2426,6 +2705,39 @@ class Game {
             }
         }
 
+        // Draw Chase Swarm mode entities
+        if (rules.isChaseSwarm) {
+            // Draw red box (lowest layer)
+            if (this.redBox) {
+                this.redBox.draw(this.renderer);
+            }
+
+            // Draw cargo ships
+            for (const ship of this.cargoShips) {
+                ship.draw(this.renderer);
+            }
+
+            // Draw boost pad walls
+            for (const wall of this.walls) {
+                wall.draw(this.renderer);
+            }
+
+            // Draw push walls
+            for (const wall of this.pushWalls) {
+                wall.draw(this.renderer);
+            }
+
+            // Draw swarm enemies
+            for (const enemy of this.swarmEnemies) {
+                enemy.draw(this.renderer);
+            }
+
+            // Draw swarm bosses
+            for (const boss of this.swarmBosses) {
+                boss.draw(this.renderer);
+            }
+        }
+
         // Draw allies (capped at ALLY_DISPLAY_CAP for performance)
         let drawnAllies = 0;
         for (const ally of this.allies) {
@@ -2510,7 +2822,7 @@ class Game {
         }
 
         // Draw Swarm lives counter
-        if (rules.isSwarm) {
+        if (rules.isSwarm || rules.isChaseSwarm) {
             ctx.fillStyle = '#ffffff';
             ctx.font = `bold 16px ${CONFIG.FONT_FAMILY}`;
             ctx.textAlign = 'right';
