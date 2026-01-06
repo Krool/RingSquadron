@@ -132,7 +132,8 @@ class Game {
         this.swarmLives = 5;
         this.permanentUpgrades = {
             wingmen: 0,
-            hasSpreadShot: false
+            hasSpreadShot: false,
+            hasRocketLauncher: false
         };
 
         // Timing
@@ -274,7 +275,7 @@ class Game {
             this.pushWalls = [];
             this.multiplierGates = [];
             this.swarmLives = 5;
-            this.permanentUpgrades = { wingmen: 0, hasSpreadShot: false };
+            this.permanentUpgrades = { wingmen: 0, hasSpreadShot: false, hasRocketLauncher: false };
             this.player.health = 1;  // 1 HP, lives system
             this.player.allowVerticalMovement = true;  // Allow full movement in Swarm mode
             // Double fire rate (100% faster shooting)
@@ -1105,32 +1106,69 @@ class Game {
 
         // Update player with weapon system - only move while dragging
         const target = this.input.isActive() ? this.input.getTarget() : null;
-        this.player.update(dt, target, currentTime);
+        const playerBullets = this.player.update(dt, target, currentTime);
 
-        // Check for swipe to cycle weapons
-        const swipeDir = this.input.checkHorizontalSwipe();
-        if (swipeDir !== 0) {
-            this.weapons.cycleWeapon(swipeDir);
-            this.floatingText.add(this.player.x, this.player.y - 40, this.weapons.getCurrentWeapon().name, {
-                color: '#00ffff',
-                size: 12,
-                duration: 1000
-            });
-            this.audio.playPowerUp();
-        }
+        // In Swarm mode, collect auto-fire bullets from player.update()
+        if (rules.isSwarm && playerBullets.length > 0) {
+            // Apply spread shot if unlocked
+            if (this.permanentUpgrades.hasSpreadShot) {
+                // Replace single bullet with spread3 pattern
+                const singleBullet = playerBullets[0];
+                playerBullets.length = 0; // Clear array
 
-        // Fire using weapon system
-        if (this.weapons.canFire(currentTime, fireRateMult)) {
-            const bullets = this.weapons.fire(
-                this.player.x,
-                this.player.y - this.player.height / 2,
-                currentTime,
-                this.player.bulletDamage - CONFIG.PLAYER_BULLET_DAMAGE, // Upgrade bonus
-                hasSpread
-            );
-            this.playerBullets.push(...bullets);
+                // Create spread3: left, center, right
+                const angles = [-0.3, 0, 0.3]; // Spread angles in radians
+                for (const angle of angles) {
+                    const vx = Math.sin(angle) * 8;
+                    const vy = -8;  // Upward
+                    const bullet = new Bullet(singleBullet.x, singleBullet.y, true, singleBullet.damage, vx, vy);
+                    bullet.canBounce = true;
+                    playerBullets.push(bullet);
+                }
+            } else {
+                // Enable bouncing for single bullet
+                for (const bullet of playerBullets) {
+                    bullet.canBounce = true;
+                }
+            }
+
+            // Apply rocket launcher if unlocked
+            if (this.permanentUpgrades.hasRocketLauncher) {
+                for (const bullet of playerBullets) {
+                    bullet.isRocket = true;
+                    bullet.splashRadius = 80;  // Explosion radius
+                }
+            }
+
+            this.playerBullets.push(...playerBullets);
             this.audio.playShoot();
             this.haptics.light();
+        } else if (!rules.isSwarm) {
+            // Check for swipe to cycle weapons (non-Swarm modes)
+            const swipeDir = this.input.checkHorizontalSwipe();
+            if (swipeDir !== 0) {
+                this.weapons.cycleWeapon(swipeDir);
+                this.floatingText.add(this.player.x, this.player.y - 40, this.weapons.getCurrentWeapon().name, {
+                    color: '#00ffff',
+                    size: 12,
+                    duration: 1000
+                });
+                this.audio.playPowerUp();
+            }
+
+            // Fire using weapon system (Chase and other modes)
+            if (this.weapons.canFire(currentTime, fireRateMult)) {
+                const bullets = this.weapons.fire(
+                    this.player.x,
+                    this.player.y - this.player.height / 2,
+                    currentTime,
+                    this.player.bulletDamage - CONFIG.PLAYER_BULLET_DAMAGE, // Upgrade bonus
+                    hasSpread
+                );
+                this.playerBullets.push(...bullets);
+                this.audio.playShoot();
+                this.haptics.light();
+            }
         }
 
         // Player engine trail (centered at bottom of ship)
@@ -1761,7 +1799,29 @@ class Game {
                         bullet.active = false;
                         enemy.takeDamage();
                         this.score += 10;
-                        this.particles.spark(enemy.x, enemy.y, '#ff6666');
+
+                        // Rocket splash damage
+                        if (bullet.isRocket && bullet.splashRadius) {
+                            this.particles.explosion(enemy.x, enemy.y, 2);
+                            this.audio.playExplosion();
+                            this.screenFx.shake(5, 0.2);
+
+                            // Damage all enemies in splash radius
+                            for (let j = this.swarmEnemies.length - 1; j >= 0; j--) {
+                                const splashEnemy = this.swarmEnemies[j];
+                                if (!splashEnemy.active) continue;
+                                const dx = splashEnemy.x - enemy.x;
+                                const dy = splashEnemy.y - enemy.y;
+                                const dist = Math.sqrt(dx * dx + dy * dy);
+                                if (dist <= bullet.splashRadius) {
+                                    splashEnemy.takeDamage();
+                                    this.score += 10;
+                                    this.particles.spark(splashEnemy.x, splashEnemy.y, '#ff9900');
+                                }
+                            }
+                        } else {
+                            this.particles.spark(enemy.x, enemy.y, '#ff6666');
+                        }
                         break;
                     }
                 }
@@ -2218,7 +2278,17 @@ class Game {
                     size: 16
                 });
                 break;
+
+            case 'rocket':
+                this.permanentUpgrades.hasRocketLauncher = true;
+                this.floatingText.add(this.player.x, this.player.y - 40, 'ROCKET LAUNCHER!', {
+                    color: '#ff3300',
+                    size: 16
+                });
+                this.screenFx.flash('#ff3300', 0.3);
+                break;
         }
+        this.audio.playPowerUp();
     }
 
     render() {

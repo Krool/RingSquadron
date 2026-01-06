@@ -93,7 +93,10 @@ export class PowerupCrate {
         // Draw type icon
         ctx.font = `bold 10px ${CONFIG.FONT_FAMILY}`;
         ctx.fillStyle = '#ffffff';
-        const icon = this.type === 'wingman' ? 'W' : 'S';
+        let icon = 'W';
+        if (this.type === 'wingman') icon = 'W';
+        else if (this.type === 'spreadshot') icon = 'S';
+        else if (this.type === 'rocket') icon = 'R';
         ctx.fillText(icon, this.x, this.y - 8);
 
         ctx.restore();

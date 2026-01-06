@@ -68,6 +68,7 @@ export class SpawnerSystem {
         this.lastPushWallSpawn = 0;
         this.cratesSpawned = 0;
         this.spreadShotSpawned = false;
+        this.rocketSpawned = false;
         this.pushWallLane = 1;  // Start with center lane, rotate 1->0->2->1...
     }
 
@@ -706,6 +707,7 @@ export class SpawnerSystem {
         this.lastPushWallSpawn = 0;
         this.cratesSpawned = 0;
         this.spreadShotSpawned = false;
+        this.rocketSpawned = false;
         this.pushWallLane = 1;  // Start with center lane, rotate 1->0->2->1...
     }
 
@@ -906,6 +908,12 @@ export class SpawnerSystem {
         if (playTime >= 6000 && !this.spreadShotSpawned) {
             this.spawnPowerupCrate(crates, this.gameWidth * 0.5, 'spreadshot', 50);
             this.spreadShotSpawned = true;
+        }
+
+        // Spawn rocket launcher crate (T=15000ms)
+        if (playTime >= 15000 && !this.rocketSpawned) {
+            this.spawnPowerupCrate(crates, this.gameWidth * 0.5, 'rocket', 100);
+            this.rocketSpawned = true;
         }
 
         // Spawn second boss (T=25000ms, 250 hits)
