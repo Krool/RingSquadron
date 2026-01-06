@@ -4,8 +4,8 @@ import { CONFIG } from '../utils/config.js';
 export class FormationSystem {
     constructor() {
         this.spacing = CONFIG.ALLY_FORMATION_SPACING;
-        // Max width is 33% of screen width
-        this.maxWidth = CONFIG.GAME_WIDTH * 0.33;
+        // Max width is 20% of screen width (reduced for tighter formation)
+        this.maxWidth = CONFIG.GAME_WIDTH * 0.20;
         // Pre-generate cloud positions with some randomness
         this.cloudOffsets = [];
         this.generateCloudOffsets(250); // Support up to 250 allies

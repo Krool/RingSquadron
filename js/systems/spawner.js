@@ -848,10 +848,22 @@ export class SpawnerSystem {
             this.cratesSpawned++;
         }
 
+        // Spawn second wingman crate (T=1500ms)
+        if (playTime >= 1500 && this.cratesSpawned === 1) {
+            this.spawnPowerupCrate(crates, this.gameWidth * 0.3, 'wingman', 3);
+            this.cratesSpawned++;
+        }
+
         // Spawn first push wall (T=3000ms)
         if (playTime >= 3000 && this.lastPushWallSpawn === 0) {
             this.spawnPushWall(pushWalls, 15);
             this.lastPushWallSpawn = playTime;
+        }
+
+        // Spawn third wingman crate (T=3500ms)
+        if (playTime >= 3500 && this.cratesSpawned === 2) {
+            this.spawnPowerupCrate(crates, this.gameWidth * 0.7, 'wingman', 5);
+            this.cratesSpawned++;
         }
 
         // Spawn first boss (T=5000ms, 100 hits)
@@ -862,7 +874,7 @@ export class SpawnerSystem {
         }
 
         // Spawn spread + wingman crates (T=6000ms)
-        if (playTime >= 6000 && this.cratesSpawned === 1) {
+        if (playTime >= 6000 && this.cratesSpawned === 3) {
             this.spawnPowerupCrate(crates, this.gameWidth * 0.25, 'spreadshot', 100);
             this.spawnPowerupCrate(crates, this.gameWidth * 0.75, 'wingman', 20);
             this.cratesSpawned += 2;

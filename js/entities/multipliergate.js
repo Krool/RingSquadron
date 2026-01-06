@@ -21,7 +21,7 @@ export class MultiplierGate {
         this.y = gameHeight / 2;  // Middle of screen
 
         // Bouncing
-        this.velocity = 2;  // Horizontal speed
+        this.velocity = 1.4;  // Horizontal speed (30% slower for easier hitting)
         this.direction = 1;  // 1 = right, -1 = left
 
         this.active = true;

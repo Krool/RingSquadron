@@ -276,13 +276,17 @@ class Game {
             this.swarmLives = 5;
             this.permanentUpgrades = { wingmen: 0, hasSpreadShot: false };
             this.player.health = 1;  // 1 HP, lives system
-            this.player.allowVerticalMovement = false;  // Keep horizontal movement only
+            this.player.allowVerticalMovement = true;  // Allow full movement in Swarm mode
+            // Double fire rate (100% faster shooting)
+            this.player.fireRate = CONFIG.PLAYER_FIRE_RATE / 2;
         } else {
             this.swarmEnemies = [];
             this.swarmBosses = [];
             this.powerupCrates = [];
             this.pushWalls = [];
             this.multiplierGates = [];
+            // Reset fire rate to default for non-Swarm modes
+            this.player.fireRate = CONFIG.PLAYER_FIRE_RATE;
         }
 
         // Apply upgrades to player
