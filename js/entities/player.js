@@ -38,6 +38,11 @@ export class Player {
         this.gameWidth = gameWidth;
         this.gameHeight = gameHeight;
 
+        // Facing direction (for Chase Swarm mode)
+        this.facingUp = true;  // true = firing up, false = firing down
+        this.downwardFireTimer = 0;
+        this.downwardFireRate = 150;  // Fire downward every 150ms when not touching
+
         // Flag for vertical movement (Chase mode)
         this.allowVerticalMovement = false;
     }
@@ -61,14 +66,17 @@ export class Player {
             }
         }
 
-        // Move based on mode
+        // Update facing direction based on touch state
         if (targetPos) {
+            this.facingUp = true;
             this.x = targetPos.x;
 
             // Allow vertical movement in Chase mode
             if (this.allowVerticalMovement) {
                 this.y = targetPos.y;
             }
+        } else {
+            this.facingUp = false;
         }
 
         // Clamp position to bounds
@@ -80,10 +88,21 @@ export class Player {
             this.y = this.fixedY;
         }
 
-        // Auto-fire
-        if (currentTime - this.lastFireTime >= this.fireRate) {
-            bullets.push(this.fire());
+        // Auto-fire upward (normal mode)
+        if (this.facingUp && currentTime - this.lastFireTime >= this.fireRate) {
+            bullets.push(this.fire(true));  // true = fire upward
             this.lastFireTime = currentTime;
+        }
+
+        // Auto-fire downward when not touching
+        if (!this.facingUp) {
+            this.downwardFireTimer += deltaTime;
+            if (this.downwardFireTimer >= this.downwardFireRate) {
+                bullets.push(this.fire(false));  // false = fire downward
+                this.downwardFireTimer = 0;
+            }
+        } else {
+            this.downwardFireTimer = 0;
         }
 
         return bullets;
@@ -93,8 +112,18 @@ export class Player {
         return this.invincibleTimer > 0;
     }
 
-    fire() {
-        return new Bullet(this.x, this.y - this.height / 2, true, this.bulletDamage);
+    fire(upward = true) {
+        if (upward) {
+            // Fire upward from top of ship
+            const bullet = new Bullet(this.x, this.y - this.height / 2, true, this.bulletDamage);
+            bullet.firingDown = false;
+            return bullet;
+        } else {
+            // Fire downward from bottom of ship
+            const bullet = new Bullet(this.x, this.y + this.height / 2, true, this.bulletDamage, 0, 8);
+            bullet.firingDown = true;
+            return bullet;
+        }
     }
 
     takeDamage(amount) {
@@ -164,6 +193,13 @@ export class Player {
 
         ctx.save();
 
+        // Apply rotation based on facing direction
+        ctx.translate(this.x, this.y);
+        if (!this.facingUp) {
+            ctx.rotate(Math.PI);  // Rotate 180 degrees when facing down
+        }
+        ctx.translate(-this.x, -this.y);
+
         // Boost glow effect - intensity scales with boost level
         if (glowColor) {
             const intensity = this.getBoostIntensity();
@@ -221,11 +257,15 @@ export class Player {
     }
 
     getBounds() {
+        // Smaller collision box to match ship body (excludes wingmen)
+        // 60% width, 80% height to better match the actual ship shape
+        const collisionWidth = this.width * 0.6;
+        const collisionHeight = this.height * 0.8;
         return {
-            x: this.x - this.width / 2,
-            y: this.y - this.height / 2,
-            width: this.width,
-            height: this.height
+            x: this.x - collisionWidth / 2,
+            y: this.y - collisionHeight / 2,
+            width: collisionWidth,
+            height: collisionHeight
         };
     }
 

@@ -230,6 +230,7 @@ class Game {
         this.currentWave = 0;
         this.waveAnnouncement = null;
         this.playTime = 0;
+        this.gameStartTime = 0;  // Will be set on first frame
         this.isNewLevelHighScore = false;
         this.bossDefeated = false;
         this.player.reset(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
@@ -915,6 +916,14 @@ class Game {
     update(deltaTime, currentTime) {
         const dt = Math.min(deltaTime, 50);
 
+        // Set game start time on first frame
+        if (this.gameStartTime === 0) {
+            this.gameStartTime = currentTime;
+        }
+
+        // Calculate relative time since game started (for spawner timing)
+        const gameTime = currentTime - this.gameStartTime;
+
         // Calculate boosted dt for scrolling entities (enemies, rings, walls)
         // This makes everything scroll faster when boosted
         const speedMultiplier = this.player.getSpeedMultiplier();
@@ -1080,7 +1089,7 @@ class Game {
 
             // Swarm spawning
             this.spawner.updateSwarmMode(
-                currentTime,
+                gameTime,
                 this.swarmEnemies,
                 this.swarmBosses,
                 this.powerupCrates,
@@ -1181,7 +1190,7 @@ class Game {
 
             // Chase Swarm spawning
             this.spawner.updateChaseSwarmSpawning(
-                currentTime,
+                gameTime,
                 this.swarmEnemies,
                 this.swarmBosses,
                 this.cargoShips,
@@ -2116,9 +2125,17 @@ class Game {
 
                 for (const boss of this.swarmBosses) {
                     if (CollisionSystem.checkAABB(wall.getBounds(), boss.getBounds())) {
-                        boss.active = false;
-                        this.particles.explosion(boss.x, boss.y, 3);
-                        this.score += 1000;
+                        // Deal 50% of max health as damage instead of instant kill
+                        const damage = Math.floor(boss.maxHealth * 0.5);
+                        const killed = boss.takeDamage(damage);
+                        if (killed) {
+                            this.score += 1000;
+                            this.particles.explosion(boss.x, boss.y, 3);
+                            this.audio.playExplosion();
+                            this.screenFx.shake(10, 0.3);
+                        } else {
+                            this.particles.spark(boss.x, boss.y, '#ff9900');
+                        }
                     }
                 }
             }
@@ -2307,9 +2324,17 @@ class Game {
 
                 for (const boss of this.swarmBosses) {
                     if (CollisionSystem.checkAABB(wall.getBounds(), boss.getBounds())) {
-                        boss.active = false;
-                        this.particles.explosion(boss.x, boss.y, 3);
-                        this.score += 1000;
+                        // Deal 50% of max health as damage instead of instant kill
+                        const damage = Math.floor(boss.maxHealth * 0.5);
+                        const killed = boss.takeDamage(damage);
+                        if (killed) {
+                            this.score += 1000;
+                            this.particles.explosion(boss.x, boss.y, 3);
+                            this.audio.playExplosion();
+                            this.screenFx.shake(10, 0.3);
+                        } else {
+                            this.particles.spark(boss.x, boss.y, '#ff9900');
+                        }
                     }
                 }
             }
@@ -2363,6 +2388,25 @@ class Game {
 
                         this.particles.spark(gate.x, gate.y, '#dd88ff');
                     }
+                }
+            }
+
+            // Downward-firing bullets vs red box (push it down)
+            for (let i = this.playerBullets.length - 1; i >= 0; i--) {
+                const bullet = this.playerBullets[i];
+                if (!bullet.active || !bullet.firingDown) continue;
+                if (!this.redBox) continue;
+
+                const bulletBounds = bullet.getBounds();
+                const redBoxBounds = this.redBox.getBounds();
+                if (CollisionSystem.checkAABB(bulletBounds, redBoxBounds)) {
+                    bullet.active = false;
+                    const cfg = CONFIG.CHASE_SWARM_MODE;
+                    this.redBox.y += cfg.redBoxPushAmount;
+                    if (this.redBox.y > CONFIG.GAME_HEIGHT - 50) {
+                        this.redBox.y = CONFIG.GAME_HEIGHT - 50;
+                    }
+                    this.particles.spark(bullet.x, bullet.y, '#44ff44');
                 }
             }
 
