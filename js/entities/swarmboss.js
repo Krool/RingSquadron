@@ -15,7 +15,7 @@ export class SwarmBoss {
         this.health = health;
         this.maxHealth = health;
         this.size = 40;  // Large hexagon
-        this.speed = 1.2;  // Same as swarm enemies
+        this.speed = 0.27;  // Match swarm enemy speed
         this.active = true;
         this.homingActive = false;
         this.homingThreshold = CONFIG.GAME_HEIGHT * 0.3;
