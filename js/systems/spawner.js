@@ -846,26 +846,26 @@ export class SpawnerSystem {
             this.swarmSpawnTimer = 0;
         }
 
-        // Spawn wingmen powerups throughout first 10 seconds (17 total)
-        // Tighter distribution around center (35%-65% of screen width)
+        // Spawn wingmen powerups spread over 20 seconds (17 total)
+        // Tighter distribution around center (36%-64% of screen width)
         const wingmanSchedule = [
-            { time: 0, x: 0.5, hits: 5 },      // Center
-            { time: 500, x: 0.42, hits: 3 },   // Left-center
-            { time: 1000, x: 0.58, hits: 3 },  // Right-center
-            { time: 1500, x: 0.46, hits: 4 },  // Left-center
-            { time: 2000, x: 0.54, hits: 4 },  // Right-center
-            { time: 2500, x: 0.38, hits: 5 },  // Left
-            { time: 3000, x: 0.62, hits: 5 },  // Right
-            { time: 3500, x: 0.5, hits: 6 },   // Center
-            { time: 4000, x: 0.44, hits: 4 },  // Left-center
-            { time: 4500, x: 0.56, hits: 4 },  // Right-center
-            { time: 5000, x: 0.40, hits: 5 },  // Left
-            { time: 5500, x: 0.60, hits: 5 },  // Right
-            { time: 6000, x: 0.5, hits: 7 },   // Center
-            { time: 7000, x: 0.48, hits: 6 },  // Left-center
-            { time: 8000, x: 0.52, hits: 6 },  // Right-center
-            { time: 9000, x: 0.36, hits: 8 },  // Left
-            { time: 10000, x: 0.64, hits: 8 }  // Right
+            { time: 0, x: 0.5, hits: 5 },       // Center
+            { time: 1000, x: 0.42, hits: 3 },   // Left-center
+            { time: 2000, x: 0.58, hits: 3 },   // Right-center
+            { time: 3000, x: 0.46, hits: 4 },   // Left-center
+            { time: 4000, x: 0.54, hits: 4 },   // Right-center
+            { time: 5000, x: 0.38, hits: 5 },   // Left
+            { time: 6000, x: 0.62, hits: 5 },   // Right
+            { time: 7000, x: 0.5, hits: 6 },    // Center
+            { time: 8000, x: 0.44, hits: 4 },   // Left-center
+            { time: 9000, x: 0.56, hits: 4 },   // Right-center
+            { time: 10000, x: 0.40, hits: 5 },  // Left
+            { time: 11000, x: 0.60, hits: 5 },  // Right
+            { time: 12000, x: 0.5, hits: 7 },   // Center
+            { time: 14000, x: 0.48, hits: 6 },  // Left-center
+            { time: 16000, x: 0.52, hits: 6 },  // Right-center
+            { time: 18000, x: 0.36, hits: 8 },  // Left
+            { time: 20000, x: 0.64, hits: 8 }   // Right
         ];
 
         for (let i = 0; i < wingmanSchedule.length; i++) {
@@ -895,8 +895,8 @@ export class SpawnerSystem {
             this.pushWallLane = (this.pushWallLane === 1) ? 0 : (this.pushWallLane === 0) ? 2 : 1;
         }
 
-        // Spawn first boss (T=12000ms, 50 hits)
-        if (playTime >= 12000 && this.bossIndex === 0) {
+        // Spawn first boss (T=22000ms, 50 hits)
+        if (playTime >= 22000 && this.bossIndex === 0) {
             this.spawnSwarmBoss(swarmBosses, 50);
             this.bossIndex++;
             this.lastBossSpawn = playTime;

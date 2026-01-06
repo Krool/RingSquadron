@@ -153,14 +153,17 @@ export class GameOverUI {
 
         ctx.restore();
 
-        // New high score banner (moved up, no subtitle)
+        // New high score banner (subtle animation, centered)
         if (this.stats.isNewHighScore) {
-            const pulse = Math.sin(this.animTime * 6) * 0.2 + 0.8;
+            const pulse = Math.sin(this.animTime * 4) * 0.1 + 0.95;  // Subtler pulse: 0.85-1.05
             ctx.save();
             ctx.shadowColor = '#ffdd00';
-            ctx.shadowBlur = 15;
+            ctx.shadowBlur = 12 * pulse;
             ctx.fillStyle = '#ffdd00';
-            ctx.font = `bold ${Math.floor(16 * pulse)}px ${CONFIG.FONT_FAMILY}`;
+            ctx.font = `bold 14px ${CONFIG.FONT_FAMILY}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.globalAlpha = pulse;
             ctx.fillText('★ NEW HIGH SCORE ★', centerX, 95);
             ctx.restore();
         }

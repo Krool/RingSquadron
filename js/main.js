@@ -1775,7 +1775,7 @@ class Game {
                     if (!boss.active) continue;
                     if (CollisionSystem.checkAABB(bullet.getBounds(), boss.getBounds())) {
                         bullet.active = false;
-                        const killed = boss.takeDamage(bullet.damage);
+                        const killed = boss.takeDamage(1);  // Always 1 damage per hit (hit counter)
                         if (killed) {
                             this.score += 1000;
                             this.particles.explosion(boss.x, boss.y, 3);
