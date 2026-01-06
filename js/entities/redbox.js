@@ -37,6 +37,7 @@ export class RedBox {
         // State
         this.active = true;
         this.playTime = 0;
+        this.unstoppable = false;  // Boss touched red box - game over mode
     }
 
     update(deltaTime, waveNumber, isSlowedDown, playerBoostLevel, enemySpeedBoost = 1.0) {
@@ -60,6 +61,19 @@ export class RedBox {
         // Safety period - don't move
         if (this.safetyTimer > 0) {
             this.safetyTimer -= deltaTime;
+            return;
+        }
+
+        // Unstoppable mode - boss reached red box, game over
+        if (this.unstoppable) {
+            // Rapidly fill the screen (5x normal speed)
+            const unstoppableRate = this.baseGrowthRate * 5;
+            this.y -= unstoppableRate * dt;
+
+            // Clamp to top of screen
+            if (this.y < 0) {
+                this.y = 0;
+            }
             return;
         }
 
@@ -105,6 +119,12 @@ export class RedBox {
         this.y = cfg.redBoxStartY;
     }
 
+    makeUnstoppable() {
+        // Boss reached red box - trigger game over mode
+        this.unstoppable = true;
+        this.flashTimer = 1000;  // Long flash for dramatic effect
+    }
+
     getBounds() {
         // Red box fills from bottom of screen upward
         // Y represents the TOP edge of the red box
@@ -140,9 +160,14 @@ export class RedBox {
         const bottomY = this.gameHeight;
         const height = bottomY - topY;
 
-        // Flash white when hit
+        // Flash white when hit, or black/red if unstoppable
         const isFlashing = this.flashTimer > 0;
-        const baseColor = isFlashing ? '#ffffff' : '#cc0000';
+        let baseColor;
+        if (this.unstoppable) {
+            baseColor = isFlashing ? '#ff0000' : '#660000';  // Dark red when unstoppable
+        } else {
+            baseColor = isFlashing ? '#ffffff' : '#cc0000';
+        }
 
         // Draw main red box (from top edge down to bottom of screen)
         ctx.fillStyle = baseColor;

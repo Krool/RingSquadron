@@ -1153,10 +1153,13 @@ class Game {
                 const boss = this.swarmBosses[i];
                 boss.update(dt, this.player.x, this.player.y);
 
-                // Check if boss reached red box
+                // Check if boss reached red box - INSTANT GAME OVER
                 if (this.redBox && boss.y >= this.redBox.y) {
-                    const cfg = CONFIG.CHASE_SWARM_MODE;
-                    this.redBoxEnemySpeedBoost += cfg.bossSpeedBoost;
+                    this.redBox.makeUnstoppable();
+                    this.audio.playExplosion();
+                    this.particles.explosion(boss.x, boss.y, 5);
+                    this.screenFx.shake(30, 1.0);
+                    this.screenFx.flash('#ff0000', 0.8, 0.1);
                     boss.active = false;
                 }
 
@@ -2444,12 +2447,19 @@ class Game {
                 const redBoxBounds = this.redBox.getBounds();
                 if (CollisionSystem.checkAABB(bulletBounds, redBoxBounds)) {
                     bullet.active = false;
-                    const cfg = CONFIG.CHASE_SWARM_MODE;
-                    this.redBox.y += cfg.redBoxPushAmount;
-                    if (this.redBox.y > CONFIG.GAME_HEIGHT - 50) {
-                        this.redBox.y = CONFIG.GAME_HEIGHT - 50;
+
+                    // Can't push if unstoppable
+                    if (!this.redBox.unstoppable) {
+                        const cfg = CONFIG.CHASE_SWARM_MODE;
+                        this.redBox.y += cfg.redBoxPushAmount;
+                        if (this.redBox.y > CONFIG.GAME_HEIGHT - 50) {
+                            this.redBox.y = CONFIG.GAME_HEIGHT - 50;
+                        }
+                        this.particles.spark(bullet.x, bullet.y, '#44ff44');
+                    } else {
+                        // Bullets just disappear, no effect
+                        this.particles.spark(bullet.x, bullet.y, '#ff0000');
                     }
-                    this.particles.spark(bullet.x, bullet.y, '#44ff44');
                 }
             }
 
@@ -2468,18 +2478,20 @@ class Game {
                 if (!ship.active || !this.redBox) continue;
 
                 if (ship.checkRedBoxCollision(this.redBox)) {
-                    if (ship.engineDestroyed) {
-                        // Engine destroyed: push red box down
-                        const cfg = CONFIG.CHASE_SWARM_MODE;
-                        this.redBox.y += cfg.redBoxPushAmount;
-                        if (this.redBox.y > CONFIG.GAME_HEIGHT - 50) {
-                            this.redBox.y = CONFIG.GAME_HEIGHT - 50;
+                    if (!this.redBox.unstoppable) {
+                        if (ship.engineDestroyed) {
+                            // Engine destroyed: push red box down
+                            const cfg = CONFIG.CHASE_SWARM_MODE;
+                            this.redBox.y += cfg.redBoxPushAmount;
+                            if (this.redBox.y > CONFIG.GAME_HEIGHT - 50) {
+                                this.redBox.y = CONFIG.GAME_HEIGHT - 50;
+                            }
+                            this.particles.explosion(ship.x, ship.y, 2);
+                        } else {
+                            // Engine intact: speed up red box
+                            const cfg = CONFIG.CHASE_SWARM_MODE;
+                            this.redBoxEnemySpeedBoost += cfg.enemySpeedBoost * 2;  // 2x boost for cargo ships
                         }
-                        this.particles.explosion(ship.x, ship.y, 2);
-                    } else {
-                        // Engine intact: speed up red box
-                        const cfg = CONFIG.CHASE_SWARM_MODE;
-                        this.redBoxEnemySpeedBoost += cfg.enemySpeedBoost * 2;  // 2x boost for cargo ships
                     }
                     ship.active = false;
                 }

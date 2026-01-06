@@ -287,9 +287,9 @@ export const CONFIG = {
         redBoxSafetyTime: 5000,          // 5s grace period
         redBoxBaseGrowthRate: 0.08,
         redBoxWaveScaling: 0.015,
-        redBoxMaxHeight: 280,
-        redBoxMinY: 420,
-        redBoxPushAmount: 50,
+        redBoxMaxHeight: 700,            // Can cover entire screen
+        redBoxMinY: 0,                   // Can reach top of screen
+        redBoxPushAmount: 25,            // Reduced 50% for less player push
 
         // Red Box speed increase from enemies
         enemySpeedBoost: 0.02,           // +2% speed per enemy that reaches box
