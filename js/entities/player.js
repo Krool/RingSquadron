@@ -46,6 +46,9 @@ export class Player {
 
         // Flag for vertical movement (Chase mode)
         this.allowVerticalMovement = false;
+
+        // Flag for ship rotation behavior (Chase Swarm mode only)
+        this.allowShipRotation = false;
     }
 
     update(deltaTime, targetPos, currentTime) {
@@ -67,20 +70,32 @@ export class Player {
             }
         }
 
-        // Update facing direction based on touch state
-        if (targetPos) {
-            this.hasEverTouched = true;
-            this.facingUp = true;
-            this.x = targetPos.x;
+        // Update facing direction based on touch state (Chase Swarm mode only)
+        if (this.allowShipRotation) {
+            if (targetPos) {
+                this.hasEverTouched = true;
+                this.facingUp = true;
+                this.x = targetPos.x;
 
-            // Allow vertical movement in Chase mode
-            if (this.allowVerticalMovement) {
-                this.y = targetPos.y;
+                // Allow vertical movement in Chase mode
+                if (this.allowVerticalMovement) {
+                    this.y = targetPos.y;
+                }
+            } else {
+                // Only face down if player has touched at least once
+                if (this.hasEverTouched) {
+                    this.facingUp = false;
+                }
             }
         } else {
-            // Only face down if player has touched at least once
-            if (this.hasEverTouched) {
-                this.facingUp = false;
+            // Normal modes: just update position
+            if (targetPos) {
+                this.x = targetPos.x;
+
+                // Allow vertical movement in Chase mode
+                if (this.allowVerticalMovement) {
+                    this.y = targetPos.y;
+                }
             }
         }
 
@@ -99,8 +114,8 @@ export class Player {
             this.lastFireTime = currentTime;
         }
 
-        // Auto-fire downward when not touching
-        if (!this.facingUp) {
+        // Auto-fire downward when not touching (Chase Swarm mode only)
+        if (this.allowShipRotation && !this.facingUp) {
             this.downwardFireTimer += deltaTime;
             if (this.downwardFireTimer >= this.downwardFireRate) {
                 bullets.push(this.fire(false));  // false = fire downward

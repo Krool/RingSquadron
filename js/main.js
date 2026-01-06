@@ -307,6 +307,7 @@ class Game {
             this.permanentUpgrades = { wingmen: 0, hasSpreadShot: false, hasRocketLauncher: false };
             this.player.health = 1;  // 1 HP, lives system
             this.player.allowVerticalMovement = true;
+            this.player.allowShipRotation = true;  // Enable ship rotation for Chase Swarm
             this.player.fireRate = CONFIG.PLAYER_FIRE_RATE / 2;  // Double fire rate
         }
 

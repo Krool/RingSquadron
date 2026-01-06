@@ -92,10 +92,9 @@ export class RedBox {
         this.y -= netRate * dt;
 
         // Apply limits
-        // Min Y is when red box reaches max height (40% of screen from bottom)
-        const maxHeightY = this.gameHeight - this.maxHeight;
-        if (this.y < maxHeightY) {
-            this.y = maxHeightY;
+        // Min Y is the configured minimum (can reach top for full coverage)
+        if (this.y < this.minY) {
+            this.y = this.minY;
         }
 
         // Max Y is the bottom of screen (can be pushed all the way down)
