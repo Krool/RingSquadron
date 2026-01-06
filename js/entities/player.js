@@ -31,7 +31,7 @@ export class Player {
         // Bounds for movement - only horizontal now
         this.minX = this.width / 2 + 10;
         this.maxX = gameWidth - this.width / 2 - 10;
-        this.minY = this.height / 2 + 10;
+        this.minY = 0;  // Allow player to go to top edge
         this.maxY = gameHeight - this.height / 2 - 10;
 
         // Store game dimensions

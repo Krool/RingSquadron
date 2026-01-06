@@ -1256,15 +1256,18 @@ class Game {
             if (this.permanentUpgrades.hasSpreadShot) {
                 // Replace single bullet with spread3 pattern
                 const singleBullet = playerBullets[0];
+                const firingDown = singleBullet.firingDown || false;
                 playerBullets.length = 0; // Clear array
 
                 // Create spread3: left, center, right
                 const angles = [-0.3, 0, 0.3]; // Spread angles in radians
+                const vyDirection = firingDown ? 8 : -8;  // Down or up based on player facing
                 for (const angle of angles) {
                     const vx = Math.sin(angle) * 8;
-                    const vy = -8;  // Upward
+                    const vy = vyDirection;
                     const bullet = new Bullet(singleBullet.x, singleBullet.y, true, singleBullet.damage, vx, vy);
                     bullet.canBounce = true;
+                    bullet.firingDown = firingDown;
                     playerBullets.push(bullet);
                 }
             } else {
@@ -1290,15 +1293,18 @@ class Game {
             if (this.permanentUpgrades.hasSpreadShot) {
                 // Replace single bullet with spread3 pattern
                 const singleBullet = playerBullets[0];
+                const firingDown = singleBullet.firingDown || false;
                 playerBullets.length = 0; // Clear array
 
                 // Create spread3: left, center, right
                 const angles = [-0.3, 0, 0.3]; // Spread angles in radians
+                const vyDirection = firingDown ? 8 : -8;  // Down or up based on player facing
                 for (const angle of angles) {
                     const vx = Math.sin(angle) * 8;
-                    const vy = -8;  // Upward
+                    const vy = vyDirection;
                     const bullet = new Bullet(singleBullet.x, singleBullet.y, true, singleBullet.damage, vx, vy);
                     bullet.canBounce = true;
+                    bullet.firingDown = firingDown;
                     playerBullets.push(bullet);
                 }
             } else {
@@ -1889,25 +1895,37 @@ class Game {
                 if (!bullet.active) continue;
 
                 for (const ship of this.cargoShips) {
-                    if (!ship.active || ship.engineDestroyed) continue;
+                    if (!ship.active) continue;
 
                     const bulletBounds = bullet.getBounds();
-                    const engineBounds = ship.getEngineBounds();
 
-                    if (CollisionSystem.checkAABB(bulletBounds, engineBounds)) {
-                        bullet.active = false;
-                        const destroyed = ship.takeDamage(bullet.damage || 10);
+                    // Check if engine still exists and can be hit
+                    if (!ship.engineDestroyed) {
+                        const engineBounds = ship.getEngineBounds();
+                        if (CollisionSystem.checkAABB(bulletBounds, engineBounds)) {
+                            bullet.active = false;
+                            const destroyed = ship.takeDamage(bullet.damage || 10, bullet.x, bullet.y);
 
-                        if (destroyed) {
-                            this.score += CONFIG.CHASE_MODE.cargoShipScore;
-                            this.audio.playExplosion();
-                            this.particles.explosion(ship.x, ship.y + 30, 1);
-                            this.floatingText.add(ship.x, ship.y, '+50', {
-                                color: '#ffff00',
-                                size: 12
-                            });
+                            if (destroyed) {
+                                this.score += CONFIG.CHASE_MODE.cargoShipScore;
+                                this.audio.playExplosion();
+                                this.particles.explosion(ship.x, ship.y + 30, 1);
+                                this.floatingText.add(ship.x, ship.y, '+50', {
+                                    color: '#ffff00',
+                                    size: 12
+                                });
+                            }
+                            break;
                         }
-                        break;
+                    } else {
+                        // Ship is destroyed - apply rotational impulse when hit
+                        const shipBounds = ship.getBounds();
+                        if (CollisionSystem.checkAABB(bulletBounds, shipBounds)) {
+                            bullet.active = false;
+                            ship.applyHitImpulse(bullet.x, bullet.y);
+                            this.particles.spark(bullet.x, bullet.y, '#ff9900');
+                            break;
+                        }
                     }
                 }
             }
@@ -2254,17 +2272,32 @@ class Game {
                 if (!bullet.active) continue;
 
                 for (const ship of this.cargoShips) {
-                    if (!ship.active || ship.engineDestroyed) continue;
-                    const engineBounds = ship.getEngineBounds();
-                    if (CollisionSystem.checkAABB(bullet.getBounds(), engineBounds)) {
-                        bullet.active = false;
-                        const destroyed = ship.takeDamage(bullet.damage);
-                        if (destroyed) {
-                            this.score += 50;
-                            this.particles.explosion(ship.x, ship.y, 2);
-                            this.audio.playExplosion();
+                    if (!ship.active) continue;
+
+                    const bulletBounds = bullet.getBounds();
+
+                    // Check if engine still exists and can be hit
+                    if (!ship.engineDestroyed) {
+                        const engineBounds = ship.getEngineBounds();
+                        if (CollisionSystem.checkAABB(bulletBounds, engineBounds)) {
+                            bullet.active = false;
+                            const destroyed = ship.takeDamage(bullet.damage, bullet.x, bullet.y);
+                            if (destroyed) {
+                                this.score += 50;
+                                this.particles.explosion(ship.x, ship.y, 2);
+                                this.audio.playExplosion();
+                            }
+                            break;
                         }
-                        break;
+                    } else {
+                        // Ship is destroyed - apply rotational impulse when hit
+                        const shipBounds = ship.getBounds();
+                        if (CollisionSystem.checkAABB(bulletBounds, shipBounds)) {
+                            bullet.active = false;
+                            ship.applyHitImpulse(bullet.x, bullet.y);
+                            this.particles.spark(bullet.x, bullet.y, '#ff9900');
+                            break;
+                        }
                     }
                 }
             }
@@ -2349,10 +2382,17 @@ class Game {
                 for (const ship of this.cargoShips) {
                     if (!ship.active || ship.engineDestroyed) continue;
                     const engineBounds = ship.getEngineBounds();
-                    if (CollisionSystem.checkAABB(wall.getBounds(), engineBounds)) {
-                        ship.takeDamage(ship.engineHealth);  // Destroy engine
+                    const wallBounds = wall.getBounds();
+                    if (CollisionSystem.checkAABB(wallBounds, engineBounds)) {
+                        // Pass wall center as hit position
+                        const wallCenterX = wallBounds.x + wallBounds.width / 2;
+                        const wallCenterY = wallBounds.y + wallBounds.height / 2;
+                        ship.takeDamage(ship.engineHealth, wallCenterX, wallCenterY);  // Destroy engine
                         this.particles.explosion(ship.x, ship.y, 2);
                         this.audio.playExplosion();
+
+                        // Apply initial spin from the push wall impact
+                        ship.applyHitImpulse(wallCenterX, wallCenterY);
                     }
                 }
             }
