@@ -850,7 +850,7 @@ class Game {
                 this.player.y,
                 ally.formationIndex
             );
-            const allyBullets = ally.update(dt, formationPos.x, formationPos.y, currentTime);
+            const allyBullets = ally.update(dt, formationPos.x, formationPos.y, currentTime, true);
             if (allyBullets.length > 0) {
                 this.playerBullets.push(...allyBullets);
             }
@@ -1361,6 +1361,9 @@ class Game {
         const allyDamageMult = this.getAllyDamageMultiplier();
         const activeAllyCount = this.allies.filter(a => a.active).length;
 
+        // Determine if allies should rotate with player (only Chase Swarm mode)
+        const allyFacingUp = rules.isChaseSwarm ? this.player.facingUp : true;
+
         // Only update/fire from displayed allies (capped at ALLY_DISPLAY_CAP)
         // Excess allies contribute to damage multiplier but don't fire
         let updatedAllies = 0;
@@ -1386,7 +1389,7 @@ class Game {
                 this.player.y,
                 ally.formationIndex
             );
-            const allyBullets = ally.update(dt, formationPos.x, formationPos.y, currentTime);
+            const allyBullets = ally.update(dt, formationPos.x, formationPos.y, currentTime, allyFacingUp);
             if (allyBullets.length > 0) {
                 // Apply damage multiplier from ally count scaling
                 for (const bullet of allyBullets) {

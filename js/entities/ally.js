@@ -37,9 +37,14 @@ export class Ally {
         this.joining = true; // True while moving to formation
         this.bobOffset = Math.random() * Math.PI * 2;
         this.bobTimer = 0;
+
+        // Facing direction (for Chase Swarm mode)
+        this.facingUp = true;
     }
 
-    update(deltaTime, targetX, targetY, currentTime) {
+    update(deltaTime, targetX, targetY, currentTime, facingUp = true) {
+        // Update facing direction
+        this.facingUp = facingUp;
         if (!this.active) return [];
 
         const bullets = [];
@@ -81,7 +86,17 @@ export class Ally {
     }
 
     fire() {
-        return new Bullet(this.x, this.y - 3, true, this.bulletDamage);
+        if (this.facingUp) {
+            // Fire upward
+            const bullet = new Bullet(this.x, this.y - 3, true, this.bulletDamage);
+            bullet.firingDown = false;
+            return bullet;
+        } else {
+            // Fire downward
+            const bullet = new Bullet(this.x, this.y + 3, true, this.bulletDamage, 0, 8);
+            bullet.firingDown = true;
+            return bullet;
+        }
     }
 
     takeDamage(amount) {
@@ -97,6 +112,15 @@ export class Ally {
         if (!this.active) return;
 
         const ctx = renderer.ctx;
+
+        ctx.save();
+
+        // Apply rotation based on facing direction
+        ctx.translate(this.x, this.y);
+        if (!this.facingUp) {
+            ctx.rotate(Math.PI);  // Rotate 180 degrees when facing down
+        }
+        ctx.translate(-this.x, -this.y);
 
         // Draw tiny ally as a small triangle using canvas primitives
         ctx.fillStyle = CONFIG.COLORS.ALLY;
@@ -115,6 +139,8 @@ export class Ally {
             ctx.arc(this.x, this.y - 6, 2, 0, Math.PI * 2);
             ctx.fill();
         }
+
+        ctx.restore();
     }
 
     getBounds() {

@@ -38,6 +38,11 @@ export class CargoShip {
         // Visual
         this.flashTimer = 0;
 
+        // Rotation physics (for when falling)
+        this.angle = 0;  // Current rotation in radians
+        this.angularVelocity = 0;  // Rotation speed (rad/frame)
+        this.angularDamping = 0.98;  // Slow down rotation over time
+
         // State
         this.active = true;
     }
@@ -49,6 +54,12 @@ export class CargoShip {
         // Update flash effect
         if (this.flashTimer > 0) {
             this.flashTimer -= deltaTime;
+        }
+
+        // Update rotation (only when destroyed)
+        if (this.state === 'destroyed') {
+            this.angle += this.angularVelocity;
+            this.angularVelocity *= this.angularDamping;  // Gradually slow down rotation
         }
 
         switch (this.state) {
@@ -80,7 +91,7 @@ export class CargoShip {
         }
     }
 
-    takeDamage(amount) {
+    takeDamage(amount, hitX = null, hitY = null) {
         if (this.engineDestroyed) return false;
 
         this.engineHealth -= amount;
@@ -94,6 +105,31 @@ export class CargoShip {
         }
 
         return false;
+    }
+
+    // Apply rotational impulse from bullet hit (only when destroyed)
+    applyHitImpulse(hitX, hitY) {
+        if (!this.engineDestroyed) return;
+
+        // Calculate offset from center
+        const offsetX = hitX - this.x;
+        const offsetY = hitY - this.y;
+
+        // Calculate torque based on perpendicular distance from center
+        // Cross product: torque = offsetX * vy - offsetY * vx (bullet moving down, so vy > 0)
+        // For simplicity, use offsetX as the main contributor (horizontal distance from center)
+        const torque = offsetX * 0.002;  // Scale factor for rotation intensity
+
+        // Add to angular velocity
+        this.angularVelocity += torque;
+
+        // Cap max rotation speed
+        const maxAngularVelocity = 0.15;
+        if (this.angularVelocity > maxAngularVelocity) {
+            this.angularVelocity = maxAngularVelocity;
+        } else if (this.angularVelocity < -maxAngularVelocity) {
+            this.angularVelocity = -maxAngularVelocity;
+        }
     }
 
     getBounds() {
@@ -137,6 +173,15 @@ export class CargoShip {
 
         // Flash white when hit
         const isFlashing = this.flashTimer > 0;
+
+        ctx.save();
+
+        // Apply rotation if destroyed and spinning
+        if (this.engineDestroyed && Math.abs(this.angle) > 0.01) {
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.angle);
+            ctx.translate(-this.x, -this.y);
+        }
 
         // Draw ship body
         ctx.fillStyle = isFlashing ? '#ffffff' : '#8888aa';
@@ -219,5 +264,7 @@ export class CargoShip {
             ctx.lineWidth = 2;
             ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
         }
+
+        ctx.restore();
     }
 }
