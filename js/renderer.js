@@ -1,5 +1,6 @@
 // ASCII Art Canvas Renderer with Parallax Stars
 import { CONFIG } from './utils/config.js';
+import { VERSION } from './version.js';
 
 export class Renderer {
     constructor(canvas) {
@@ -85,6 +86,19 @@ export class Renderer {
 
         // Draw stars
         this.drawStars();
+
+        // Draw version number in top left (subtle)
+        this.drawVersion();
+    }
+
+    // Draw version number
+    drawVersion() {
+        this.ctx.save();
+        this.ctx.globalAlpha = 0.4;
+        this.ctx.fillStyle = '#888888';
+        this.ctx.font = `8px ${CONFIG.FONT_FAMILY}`;
+        this.ctx.fillText(`v${VERSION}`, 5, 5);
+        this.ctx.restore();
     }
 
     // Draw an ASCII sprite at given position
@@ -452,9 +466,9 @@ export class Renderer {
         this.drawTextFullyCentered('Tap a mode to start', centerX, this.canvas.height - 40, '#999999', 10);
         this.ctx.globalAlpha = 1;
 
-        // Version number
+        // Version number (bottom - more visible on menu)
         this.ctx.globalAlpha = 0.6;
-        this.drawText('v2.0', 10, this.canvas.height - 20, '#888888', 8);
+        this.drawText(`v${VERSION}`, 10, this.canvas.height - 20, '#888888', 8);
         this.ctx.globalAlpha = 1;
     }
 
