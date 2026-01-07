@@ -102,6 +102,7 @@ class Game {
         this.playTime = 0; // Time spent in current game (seconds)
         this.isNewLevelHighScore = false; // Flag for displaying "NEW HIGH SCORE!"
         this.bossDefeated = false; // Track if boss was defeated this run
+        this.victoryAchieved = false; // Flag to prevent death after victory
 
         // Entities
         this.player = new Player(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
@@ -233,6 +234,7 @@ class Game {
         this.gameStartTime = 0;  // Will be set on first frame
         this.isNewLevelHighScore = false;
         this.bossDefeated = false;
+        this.victoryAchieved = false;
         this.player.reset(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
         this.allies = [];
         this.enemies = [];
@@ -1006,7 +1008,7 @@ class Game {
                 }
 
                 // Check collision with player - only if not in victory state
-                if (this.redBox.checkPlayerCollision(this.player) && this.state !== 'gameover') {
+                if (this.redBox.checkPlayerCollision(this.player) && !this.victoryAchieved) {
                     if (!this.playerInvincible && !this.gameMode.isInvincible()) {
                         // Player dies from red box
                         this.player.health = 0;
@@ -2482,8 +2484,8 @@ class Game {
                 }
             }
 
-            // Player vs red box (game over) - only if not already in gameover (victory)
-            if (this.redBox && this.redBox.checkPlayerCollision(this.player) && this.state !== 'gameover') {
+            // Player vs red box (game over) - only if not already achieved victory
+            if (this.redBox && this.redBox.checkPlayerCollision(this.player) && !this.victoryAchieved) {
                 this.player.active = false;
                 this.state = 'gameover';
                 this.particles.explosion(this.player.x, this.player.y, 3);
@@ -2531,7 +2533,7 @@ class Game {
                         duration: 1000
                     });
 
-                    if (this.swarmLives <= 0) {
+                    if (this.swarmLives <= 0 && !this.victoryAchieved) {
                         this.player.active = false;
                         this.state = 'gameover';
                     }
@@ -2540,7 +2542,7 @@ class Game {
 
             // Swarm boss vs player
             for (const boss of this.swarmBosses) {
-                if (CollisionSystem.checkAABB(this.player.getBounds(), boss.getBounds())) {
+                if (CollisionSystem.checkAABB(this.player.getBounds(), boss.getBounds()) && !this.victoryAchieved) {
                     this.player.active = false;
                     this.state = 'gameover';
                     this.particles.explosion(this.player.x, this.player.y, 3);
@@ -2564,7 +2566,7 @@ class Game {
                         duration: 1000
                     });
 
-                    if (this.swarmLives <= 0) {
+                    if (this.swarmLives <= 0 && !this.victoryAchieved) {
                         this.player.active = false;
                         this.state = 'gameover';
                     }
@@ -3207,6 +3209,7 @@ class Game {
 
     // Chase mode victory
     handleVictory() {
+        this.victoryAchieved = true; // Set victory flag to prevent death
         this.state = 'gameover'; // Reuse gameover state but show victory
         this.audio.playVictory();
         this.screenFx.flash('#00ff00', 1.0);
