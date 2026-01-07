@@ -2,9 +2,37 @@
 import { CONFIG } from '../utils/config.js';
 
 export const GAME_MODES = {
+    CAMPAIGN: {
+        name: 'Campaign',
+        description: 'Puzzle levels with red / blue gates (rings)',
+        icon: '!',
+        rules: {
+            waves: 12,
+            lives: 3,
+            goldMultiplier: 1.5,
+            difficultyRamp: 'fixed',
+            bossEvery: 0,
+            finalBoss: false,
+            isCampaign: true
+        }
+    },
+    WALL: {
+        name: 'Wall Mode',
+        description: 'Dodge indestructible walls',
+        icon: '#',
+        rules: {
+            waves: Infinity,
+            lives: 1,
+            goldMultiplier: 1.5,
+            difficultyRamp: 'standard',
+            bossEvery: 0,
+            hasWalls: true,
+            noAllyRings: true
+        }
+    },
     CHASE: {
         name: 'Chase',
-        description: 'Outrun the rising death! (12 waves)',
+        description: 'Outrun the rising death',
         icon: '▲',
         rules: {
             waves: 12,              // Finite waves
@@ -40,8 +68,9 @@ export const GAME_MODES = {
         name: 'Chase Swarm',
         description: 'Outrun death while fighting the horde!',
         icon: '▲≋',
+        featured: true,         // Featured mode - highlight in menu
         rules: {
-            waves: Infinity,        // Endless survival
+            waves: Infinity,        // Not wave-based
             lives: 5,               // 5 hits before death
             goldMultiplier: 0,      // No gold
             difficultyRamp: 'time', // Time-based scaling
@@ -50,35 +79,21 @@ export const GAME_MODES = {
             noAllyRings: true,      // No rings
             noShop: true,           // No shop
             isChaseSwarm: true,     // Flag for Chase Swarm-specific logic
-            canWin: false           // Endless mode
+            canWin: true            // Victory possible by killing all enemies
         }
     },
-    CAMPAIGN: {
-        name: 'Campaign',
-        description: '12 puzzle levels, master the rings',
-        icon: '!',
+    CUSTOM: {
+        name: 'Custom Levels',
+        description: 'Play user-created levels',
+        icon: '?',
         rules: {
-            waves: 12,
+            waves: 0,
             lives: 3,
-            goldMultiplier: 1.5,
+            goldMultiplier: 1,
             difficultyRamp: 'fixed',
             bossEvery: 0,
-            finalBoss: false,
-            isCampaign: true
-        }
-    },
-    WALL: {
-        name: 'Wall Mode',
-        description: 'Dodge indestructible walls',
-        icon: '#',
-        rules: {
-            waves: Infinity,
-            lives: 1,
-            goldMultiplier: 1.5,
-            difficultyRamp: 'standard',
-            bossEvery: 0,
-            hasWalls: true,
-            noAllyRings: true
+            isCustom: true,
+            noHighScore: true
         }
     },
     EDITOR: {
@@ -95,26 +110,12 @@ export const GAME_MODES = {
             noHighScore: true,
             invincible: true
         }
-    },
-    CUSTOM: {
-        name: 'Custom Levels',
-        description: 'Play user-created levels',
-        icon: '?',
-        rules: {
-            waves: 0,
-            lives: 3,
-            goldMultiplier: 1,
-            difficultyRamp: 'fixed',
-            bossEvery: 0,
-            isCustom: true,
-            noHighScore: true
-        }
     }
 };
 
 export class GameModeManager {
     constructor() {
-        this.currentMode = 'CHASE';
+        this.currentMode = 'CAMPAIGN';
         this.modeData = null;
         this.waveNumber = 1;
         this.livesRemaining = 1;
@@ -242,7 +243,7 @@ export class GameModeManager {
     // Deserialize
     deserialize(data) {
         if (data) {
-            this.setMode(data.mode || 'ENDLESS');
+            this.setMode(data.mode || 'CAMPAIGN');
             this.waveNumber = data.wave || 1;
             this.livesRemaining = data.lives || this.getRules().lives;
         }
@@ -321,10 +322,22 @@ export class ModeSelectUI {
     getIndexAtY(y) {
         const adjustedY = y - this.modeStartY;
         if (adjustedY < 0) return -1;
-        const index = Math.floor(adjustedY / this.modeHeight);
-        if (index >= 0 && index < this.modes.length) {
-            return index;
+
+        // Account for gap before CUSTOM mode (which is index 5)
+        let currentY = 0;
+        for (let i = 0; i < this.modes.length; i++) {
+            // Add gap before CUSTOM
+            if (this.modes[i][0] === 'CUSTOM') {
+                currentY += 20;
+            }
+
+            // Check if y is within this button
+            if (adjustedY >= currentY && adjustedY < currentY + this.modeHeight) {
+                return i;
+            }
+            currentY += this.modeHeight;
         }
+
         return -1;
     }
 
@@ -354,10 +367,16 @@ export class ModeSelectUI {
 
         // Mode buttons
         this.modes.forEach(([key, mode], index) => {
+            // Add gap before Custom Levels
+            if (key === 'CUSTOM') {
+                y += 20; // Extra spacing
+            }
+
             const isHovered = index === this.hoveredIndex;
             const isPressed = index === this.pressedIndex;
             const scale = this.buttonScales[index];
             const glow = this.buttonGlows[index];
+            const isFeatured = mode.featured || false;
 
             // Button dimensions
             const btnWidth = 340;
@@ -374,6 +393,13 @@ export class ModeSelectUI {
             ctx.scale(scale, scale);
             ctx.translate(-btnCenterX, -btnCenterY);
 
+            // Featured mode always has a subtle glow
+            if (isFeatured && !isHovered) {
+                const pulseGlow = 0.3 + Math.sin(animTime * 2) * 0.2;
+                ctx.shadowColor = this.getModeColor(key);
+                ctx.shadowBlur = 20 * pulseGlow;
+            }
+
             // Button glow effect
             if (glow > 0.01) {
                 ctx.shadowColor = this.getModeColor(key);
@@ -381,7 +407,9 @@ export class ModeSelectUI {
             }
 
             // Button background - retro gradient effect
-            const bgAlpha = isPressed ? 0.4 : (isHovered ? 0.25 : 0.15);
+            // Featured mode has brighter background
+            const baseBgAlpha = isFeatured ? 0.25 : 0.15;
+            const bgAlpha = isPressed ? 0.4 : (isHovered ? 0.30 : baseBgAlpha);
             const gradient = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnHeight);
             const modeColor = this.getModeColor(key);
             gradient.addColorStop(0, this.hexToRgba(modeColor, bgAlpha * 1.5));
@@ -391,12 +419,14 @@ export class ModeSelectUI {
             ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
 
             // Button border - double line retro style
-            ctx.strokeStyle = isHovered ? modeColor : '#444444';
-            ctx.lineWidth = isHovered ? 2 : 1;
+            // Featured mode has brighter border
+            const borderColor = isFeatured ? modeColor : '#444444';
+            ctx.strokeStyle = isHovered ? modeColor : borderColor;
+            ctx.lineWidth = (isHovered || isFeatured) ? 2 : 1;
             ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
 
             // Inner border for depth
-            if (isHovered) {
+            if (isHovered || isFeatured) {
                 ctx.strokeStyle = this.hexToRgba(modeColor, 0.3);
                 ctx.lineWidth = 1;
                 ctx.strokeRect(btnX + 3, btnY + 3, btnWidth - 6, btnHeight - 6);
@@ -417,21 +447,23 @@ export class ModeSelectUI {
             // Mode icon with retro box
             const iconX = btnX + 28;
             const iconY = btnY + btnHeight / 2;
-            ctx.fillStyle = isHovered ? modeColor : '#999999';
+            const iconColor = isFeatured ? modeColor : (isHovered ? modeColor : '#999999');
+            ctx.fillStyle = iconColor;
             ctx.font = `bold 18px ${fontFamily}`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(`[${mode.icon}]`, iconX, iconY);
 
-            // Mode name
-            ctx.fillStyle = isHovered ? '#ffffff' : '#bbbbbb';
+            // Mode name - brighter colors for better readability
+            const nameColor = isFeatured ? '#ffffff' : (isHovered ? '#ffffff' : '#dddddd');
+            ctx.fillStyle = nameColor;
             ctx.font = `bold 14px ${fontFamily}`;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             ctx.fillText(mode.name.toUpperCase(), btnX + 55, btnY + 16);
 
             // Description - improved readability
-            ctx.fillStyle = isHovered ? '#cccccc' : '#999999';
+            ctx.fillStyle = isHovered ? '#cccccc' : '#aaaaaa';
             ctx.font = `10px ${fontFamily}`;
             ctx.fillText(mode.description, btnX + 55, btnY + 32);
 

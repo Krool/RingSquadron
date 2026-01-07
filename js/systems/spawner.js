@@ -1002,16 +1002,21 @@ export class SpawnerSystem {
         const cfg = CONFIG.CHASE_SWARM_MODE;
         const playTime = currentTime;
 
-        // Spawn swarm enemies continuously (every 50ms)
-        this.swarmSpawnTimer += 16;
-        if (this.swarmSpawnTimer >= cfg.swarmSpawnRate) {
-            this.spawnChaseSwarmWave(swarmEnemies);
-            this.swarmSpawnTimer = 0;
+        // Stop spawning new enemies after 30 seconds
+        const stopSpawningTime = 30000; // 30 seconds
+
+        // Spawn swarm enemies continuously (every 50ms) - stop at 30s
+        if (playTime < stopSpawningTime) {
+            this.swarmSpawnTimer += 16;
+            if (this.swarmSpawnTimer >= cfg.swarmSpawnRate) {
+                this.spawnChaseSwarmWave(swarmEnemies);
+                this.swarmSpawnTimer = 0;
+            }
         }
 
-        // Spawn cargo ships (trucks) periodically
+        // Spawn cargo ships (trucks) periodically - stop at 30s
         if (!this.lastCargoSpawn) this.lastCargoSpawn = 0;
-        if (playTime - this.lastCargoSpawn >= cfg.cargoShipBaseInterval) {
+        if (playTime < stopSpawningTime && playTime - this.lastCargoSpawn >= cfg.cargoShipBaseInterval) {
             this.spawnCargoShip(cargoShips, 1);
             this.lastCargoSpawn = playTime;
         }
@@ -1076,22 +1081,22 @@ export class SpawnerSystem {
             this.rocketSpawned = true;
         }
 
-        // Spawn first boss (T=22000ms, 50 hits)
-        if (playTime >= 22000 && this.bossIndex === 0) {
+        // Spawn first boss (T=22000ms, 50 hits) - only if before 30s
+        if (playTime >= 22000 && playTime < stopSpawningTime && this.bossIndex === 0) {
             this.spawnChaseSwarmBoss(swarmBosses, 50);
             this.bossIndex++;
             this.lastBossSpawn = playTime;
         }
 
-        // Spawn second boss (T=25000ms, 250 hits)
-        if (playTime >= 25000 && this.bossIndex === 1) {
+        // Spawn second boss (T=25000ms, 250 hits) - only if before 30s
+        if (playTime >= 25000 && playTime < stopSpawningTime && this.bossIndex === 1) {
             this.spawnChaseSwarmBoss(swarmBosses, 250);
             this.bossIndex++;
             this.lastBossSpawn = playTime;
         }
 
-        // Continue spawning bosses exponentially (every 15s after second boss)
-        if (this.bossIndex >= 2 && playTime - this.lastBossSpawn >= 15000) {
+        // Continue spawning bosses exponentially (every 15s after second boss) - stop at 30s
+        if (this.bossIndex >= 2 && playTime < stopSpawningTime && playTime - this.lastBossSpawn >= 15000) {
             const health = Math.pow(2, this.bossIndex - 1) * 250;  // 500, 1000, 2000...
             this.spawnChaseSwarmBoss(swarmBosses, health);
             this.bossIndex++;

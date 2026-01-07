@@ -1203,6 +1203,14 @@ class Game {
                 this.multiplierGates
             );
 
+            // Check for victory condition: after 30 seconds, all enemies defeated
+            if (gameTime >= 30000 &&
+                this.swarmEnemies.length === 0 &&
+                this.swarmBosses.length === 0 &&
+                this.cargoShips.length === 0) {
+                this.handleVictory();
+            }
+
             // Enable bullet bouncing for player bullets
             for (const bullet of this.playerBullets) {
                 bullet.canBounce = true;
