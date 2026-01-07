@@ -2960,12 +2960,7 @@ class Game {
                 gate.draw(this.renderer);
             }
 
-            // Draw push walls
-            for (const wall of this.pushWalls) {
-                wall.draw(this.renderer);
-            }
-
-            // Draw swarm enemies
+            // Draw swarm enemies (below push walls and powerups)
             for (const enemy of this.swarmEnemies) {
                 enemy.draw(this.renderer);
             }
@@ -2973,6 +2968,11 @@ class Game {
             // Draw swarm bosses
             for (const boss of this.swarmBosses) {
                 boss.draw(this.renderer);
+            }
+
+            // Draw push walls
+            for (const wall of this.pushWalls) {
+                wall.draw(this.renderer);
             }
 
             // Draw powerup crates
@@ -3017,6 +3017,16 @@ class Game {
                 gate.draw(this.renderer);
             }
 
+            // Draw swarm enemies (below push walls and powerups)
+            for (const enemy of this.swarmEnemies) {
+                enemy.draw(this.renderer);
+            }
+
+            // Draw swarm bosses
+            for (const boss of this.swarmBosses) {
+                boss.draw(this.renderer);
+            }
+
             // Draw push walls
             for (const wall of this.pushWalls) {
                 wall.draw(this.renderer);
@@ -3025,16 +3035,6 @@ class Game {
             // Draw powerup crates
             for (const crate of this.powerupCrates) {
                 crate.draw(this.renderer);
-            }
-
-            // Draw swarm enemies
-            for (const enemy of this.swarmEnemies) {
-                enemy.draw(this.renderer);
-            }
-
-            // Draw swarm bosses
-            for (const boss of this.swarmBosses) {
-                boss.draw(this.renderer);
             }
 
             // Draw rocket explosion radius indicators

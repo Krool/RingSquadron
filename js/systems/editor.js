@@ -33,7 +33,7 @@ export class EditorSystem {
 
         // Grid settings
         this.gridSize = 40;
-        this.laneWidth = CONFIG.GAME_WIDTH / 3;
+        this.laneWidth = CONFIG.GAME_WIDTH / 5;
 
         // Scroll/pan settings
         this.scrollOffset = 0;  // How far scrolled down (positive = looking further up the wave)
@@ -56,7 +56,7 @@ export class EditorSystem {
             delay: 2000,  // Delay before this wave starts (ms)
             rings: [],    // { x: 0-1 normalized, y: spawn Y, value: number, path: string }
             enemies: [],  // { x: 0-1 normalized, y: spawn Y, type: string }
-            walls: [],    // { lane: 0-2, y: spawn Y }
+            walls: [],    // { lane: 0-4, y: spawn Y }
             gates: []     // { x: 0-1 normalized, y: spawn Y, type: 'multiply' | 'divide' }
         };
     }
@@ -153,7 +153,7 @@ export class EditorSystem {
                 break;
 
             case 'wall':
-                const lane = Math.floor(normalizedX * 3);
+                const lane = Math.floor(normalizedX * 5);
                 // Check if wall already exists at this lane AND Y position
                 const existingWall = wave.walls.findIndex(w =>
                     w.lane === lane && Math.abs(w.y - snappedY) < 30
@@ -215,7 +215,7 @@ export class EditorSystem {
         );
 
         // Erase walls by lane AND Y position
-        const lane = Math.floor(normalizedX * 3);
+        const lane = Math.floor(normalizedX * 5);
         wave.walls = wave.walls.filter(w =>
             w.lane !== lane || Math.abs(w.y - worldY) > yTolerance
         );
