@@ -332,12 +332,17 @@ export class Wall {
             ctx.lineTo(left + this.width - stripeWidth - 5, this.y);
             ctx.stroke();
 
-            // Display hits remaining instead of "PUSH" text
+            // Display hits remaining with outline for readability during flash
             const remaining = this.hitsRequired - this.hitCount;
-            ctx.fillStyle = '#ffff00';
             ctx.font = `bold 18px ${CONFIG.FONT_FAMILY}`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
+            // Dark outline
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 4;
+            ctx.strokeText(remaining, this.x, this.y);
+            // Yellow fill
+            ctx.fillStyle = '#ffff00';
             ctx.fillText(remaining, this.x, this.y);
         } else {
             // Center line pattern

@@ -82,12 +82,17 @@ export class PowerupCrate {
             this.size
         );
 
-        // Draw hit counter
+        // Draw hit counter with outline for readability during flash
         const remaining = this.hitsRequired - this.hitCount;
-        ctx.fillStyle = '#ffff00';
         ctx.font = `bold 16px ${CONFIG.FONT_FAMILY}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        // Dark outline
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.strokeText(remaining, this.x, this.y + 6);
+        // Yellow fill
+        ctx.fillStyle = '#ffff00';
         ctx.fillText(remaining, this.x, this.y + 6);
 
         // Draw type icon

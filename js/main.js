@@ -889,7 +889,8 @@ class Game {
                 ally.formationIndex
             );
             const allyBullets = ally.update(dt, formationPos.x, formationPos.y, currentTime, true);
-            if (allyBullets.length > 0) {
+            // Don't fire bullets during victory sequence
+            if (allyBullets.length > 0 && this.victorySequenceTimer === 0) {
                 this.playerBullets.push(...allyBullets);
             }
         }
@@ -1087,7 +1088,7 @@ class Game {
             // Update swarm enemies
             for (let i = this.swarmEnemies.length - 1; i >= 0; i--) {
                 const enemy = this.swarmEnemies[i];
-                enemy.update(dt, this.player.x, this.player.y);
+                enemy.update(boostedDt, this.player.x, this.player.y);
                 if (!enemy.active) {
                     this.swarmEnemies.splice(i, 1);
                 }
@@ -1096,7 +1097,7 @@ class Game {
             // Update swarm bosses
             for (let i = this.swarmBosses.length - 1; i >= 0; i--) {
                 const boss = this.swarmBosses[i];
-                boss.update(dt, this.player.x, this.player.y);
+                boss.update(boostedDt, this.player.x, this.player.y);
                 if (!boss.active) {
                     this.swarmBosses.splice(i, 1);
                 }
@@ -1105,7 +1106,7 @@ class Game {
             // Update powerup crates
             for (let i = this.powerupCrates.length - 1; i >= 0; i--) {
                 const crate = this.powerupCrates[i];
-                crate.update(dt);
+                crate.update(boostedDt);
                 if (!crate.active) {
                     this.powerupCrates.splice(i, 1);
                 }
@@ -1114,7 +1115,7 @@ class Game {
             // Update push walls
             for (let i = this.pushWalls.length - 1; i >= 0; i--) {
                 const wall = this.pushWalls[i];
-                wall.update(dt, dt);
+                wall.update(boostedDt, dt);
                 if (!wall.active) {
                     this.pushWalls.splice(i, 1);
                 }
@@ -1122,7 +1123,7 @@ class Game {
 
             // Update multiplier gates
             for (const gate of this.multiplierGates) {
-                gate.update(dt);
+                gate.update(boostedDt);
             }
 
             // Swarm spawning
@@ -1187,7 +1188,7 @@ class Game {
             // Update swarm enemies (no homing)
             for (let i = this.swarmEnemies.length - 1; i >= 0; i--) {
                 const enemy = this.swarmEnemies[i];
-                enemy.update(dt, this.player.x, this.player.y);
+                enemy.update(boostedDt, this.player.x, this.player.y);
 
                 // Check if enemy reached red box
                 if (this.redBox && enemy.y >= this.redBox.y) {
@@ -1204,7 +1205,7 @@ class Game {
             // Update swarm bosses (no homing)
             for (let i = this.swarmBosses.length - 1; i >= 0; i--) {
                 const boss = this.swarmBosses[i];
-                boss.update(dt, this.player.x, this.player.y);
+                boss.update(boostedDt, this.player.x, this.player.y);
 
                 // Check if boss reached red box - INSTANT GAME OVER
                 if (this.redBox && boss.y >= this.redBox.y) {
@@ -1219,29 +1220,6 @@ class Game {
                 if (!boss.active) {
                     this.swarmBosses.splice(i, 1);
                 }
-            }
-
-            // Update push walls
-            for (let i = this.pushWalls.length - 1; i >= 0; i--) {
-                const wall = this.pushWalls[i];
-                wall.update(dt, dt);
-                if (!wall.active) {
-                    this.pushWalls.splice(i, 1);
-                }
-            }
-
-            // Update powerup crates
-            for (let i = this.powerupCrates.length - 1; i >= 0; i--) {
-                const crate = this.powerupCrates[i];
-                crate.update(dt);
-                if (!crate.active) {
-                    this.powerupCrates.splice(i, 1);
-                }
-            }
-
-            // Update multiplier gates
-            for (const gate of this.multiplierGates) {
-                gate.update(dt);
             }
 
                 // Chase Swarm spawning
@@ -1292,6 +1270,29 @@ class Game {
                     this.haptics.heavy();
                 }
             } // End of victorySequenceTimer === 0 check
+
+            // Update push walls (continue during victory sequence)
+            for (let i = this.pushWalls.length - 1; i >= 0; i--) {
+                const wall = this.pushWalls[i];
+                wall.update(boostedDt, dt);
+                if (!wall.active) {
+                    this.pushWalls.splice(i, 1);
+                }
+            }
+
+            // Update powerup crates (continue during victory sequence)
+            for (let i = this.powerupCrates.length - 1; i >= 0; i--) {
+                const crate = this.powerupCrates[i];
+                crate.update(boostedDt);
+                if (!crate.active) {
+                    this.powerupCrates.splice(i, 1);
+                }
+            }
+
+            // Update multiplier gates (continue during victory sequence)
+            for (const gate of this.multiplierGates) {
+                gate.update(boostedDt);
+            }
 
             // Enable bullet bouncing for player bullets
             for (const bullet of this.playerBullets) {
@@ -1649,7 +1650,8 @@ class Game {
                 ally.formationIndex
             );
             const allyBullets = ally.update(dt, formationPos.x, formationPos.y, currentTime, allyFacingUp);
-            if (allyBullets.length > 0) {
+            // Don't fire bullets during victory sequence
+            if (allyBullets.length > 0 && this.victorySequenceTimer === 0) {
                 // Apply damage multiplier from ally count scaling
                 for (const bullet of allyBullets) {
                     bullet.damage = Math.floor(bullet.damage * allyDamageMult);
@@ -2706,8 +2708,8 @@ class Game {
                     // Can't push if unstoppable
                     if (!this.redBox.unstoppable) {
                         const cfg = CONFIG.CHASE_SWARM_MODE;
-                        // Reduce push amount: player shots 75% reduction, wingmen shots 95% reduction
-                        let pushMultiplier = bullet.fromAlly ? 0.05 : 0.25;
+                        // Reduce push amount: player shots 90% reduction, wingmen shots 99% reduction
+                        let pushMultiplier = bullet.fromAlly ? 0.01 : 0.1;
                         this.redBox.y += cfg.redBoxPushAmount * pushMultiplier;
                         if (this.redBox.y > CONFIG.GAME_HEIGHT) {
                             this.redBox.y = CONFIG.GAME_HEIGHT;
