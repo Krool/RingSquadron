@@ -70,6 +70,12 @@ export class SpawnerSystem {
         this.spreadShotSpawned = false;
         this.rocketSpawned = false;
         this.pushWallLane = 1;  // Start with center lane, rotate 1->0->2->1...
+
+        // Clear Columns mode timers
+        this.clearColumnsWingmanCount = 0;
+        this.clearColumnsLastWingmanSpawn = 0;
+        this.clearColumnsSpreadShotSpawned = false;
+        this.clearColumnsRocketSpawned = false;
     }
 
     update(currentTime, enemies, rings, difficulty = 1, allyCount = 0, modeSpawnMult = 1, walls = null, hasWalls = false, noAllyRings = false) {
@@ -716,6 +722,12 @@ export class SpawnerSystem {
         this.spreadShotSpawned = false;
         this.rocketSpawned = false;
         this.pushWallLane = 1;  // Start with center lane, rotate 1->0->2->1...
+
+        // Clear Columns mode timers
+        this.clearColumnsWingmanCount = 0;
+        this.clearColumnsLastWingmanSpawn = 0;
+        this.clearColumnsSpreadShotSpawned = false;
+        this.clearColumnsRocketSpawned = false;
     }
 
     getDifficulty() {
@@ -1198,23 +1210,21 @@ export class SpawnerSystem {
             this.lastCargoSpawn = playTime;
         }
 
-        // Spawn push walls in left 3 columns
+        // Spawn push walls in left 3 columns only (not in the right 2 columns where powerups are)
         const pushWallInterval = 8000;
         const timeSinceLastPushWall = playTime - this.lastPushWallSpawn;
         if (this.lastPushWallSpawn === 0 && playTime >= 3000) {
-            const lane = Math.floor(Math.random() * 3); // Only lanes 0, 1, 2
-            this.spawnPushWall(pushWalls, 15, lane, cfg.pushWallWidthMultiplier);
+            const column = Math.floor(Math.random() * 3); // Only columns 0, 1, 2
+            this.spawnPushWallInClearColumns(pushWalls, 15, column, columnWidth, cfg.pushWallWidthMultiplier);
             this.lastPushWallSpawn = playTime;
         } else if (timeSinceLastPushWall >= pushWallInterval && this.lastPushWallSpawn > 0) {
             const wallCount = Math.floor((playTime - 3000) / pushWallInterval);
-            const lane = Math.floor(Math.random() * 3); // Only lanes 0, 1, 2
-            this.spawnPushWall(pushWalls, 15 + wallCount * 5, lane, cfg.pushWallWidthMultiplier);
+            const column = Math.floor(Math.random() * 3); // Only columns 0, 1, 2
+            this.spawnPushWallInClearColumns(pushWalls, 15 + wallCount * 5, column, columnWidth, cfg.pushWallWidthMultiplier);
             this.lastPushWallSpawn = playTime;
         }
 
         // Spawn wingmen power ups in 4th column (column index 3), every second with incrementing hit count
-        if (!this.clearColumnsWingmanCount) this.clearColumnsWingmanCount = 0;
-        if (!this.clearColumnsLastWingmanSpawn) this.clearColumnsLastWingmanSpawn = 0;
         const wingmanInterval = 1000; // Every second
         if (playTime - this.clearColumnsLastWingmanSpawn >= wingmanInterval && playTime < stopSpawningTime) {
             const column4X = columnWidth * 3.5; // Center of 4th column
@@ -1310,6 +1320,20 @@ export class SpawnerSystem {
             const lane = Math.floor(Math.random() * 3); // Only lanes 0, 1, 2
             const x = lane * columnWidth + columnWidth / 2;
             cargoShips.push(new CargoShip(x, lane, waveNumber, cfg.cargoShipFallSpeedMultiplier));
+        });
+    }
+
+    /**
+     * Spawn a push wall constrained to left 3 columns only (for Clear Columns mode)
+     */
+    spawnPushWallInClearColumns(pushWalls, hitsRequired, column, columnWidth, widthMultiplier = 1.0) {
+        import('../entities/wall.js').then(module => {
+            const Wall = module.Wall;
+            // Position in the center of the specified column (0, 1, or 2)
+            const x = column * columnWidth + columnWidth / 2;
+            // Use column as the lane parameter, but the wall will use its own width calculation
+            const wall = new Wall(x, -40, column, 'HIT_COUNTER_PUSH', hitsRequired, widthMultiplier, 3);
+            pushWalls.push(wall);
         });
     }
 

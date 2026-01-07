@@ -1255,17 +1255,15 @@ class Game {
                     this.multiplierGates
                 );
 
-                // Check for victory condition: after 30 seconds, all enemies defeated
+                // Check for victory condition: after 30 seconds, last boss defeated
                 if (gameTime >= 30000 &&
-                    this.swarmEnemies.length === 0 &&
                     this.swarmBosses.length === 0 &&
-                    this.cargoShips.length === 0 &&
                     this.victorySequenceTimer === 0) {
                     // Start victory sequence
                     this.victorySequenceTimer = 3000; // 3 seconds for sequence
                     this.victoryAchieved = true; // Prevent death
 
-                    // Create massive explosions across the screen (enemies are already dead)
+                    // Create massive explosions across the screen
                     // Create a grid of explosions for dramatic effect
                     const explosionCount = 15;
                     for (let i = 0; i < explosionCount; i++) {
@@ -1277,7 +1275,13 @@ class Game {
                         }, i * 100); // Stagger explosions over 1.5 seconds
                     }
 
-                    // Clear all remaining enemies (should already be empty)
+                    // Clear all remaining enemies from the screen
+                    for (const enemy of this.swarmEnemies) {
+                        this.particles.explosion(enemy.x, enemy.y, 2);
+                    }
+                    for (const ship of this.cargoShips) {
+                        this.particles.explosion(ship.x, ship.y, 2);
+                    }
                     this.swarmEnemies = [];
                     this.swarmBosses = [];
                     this.cargoShips = [];
