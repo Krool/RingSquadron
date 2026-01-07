@@ -149,7 +149,7 @@ export class Wall {
         this.typeData = WALL_TYPES[type] || WALL_TYPES.SOLID;
 
         // Dimensions - span most of the lane width
-        const laneWidth = CONFIG.GAME_WIDTH / 3;
+        const laneWidth = CONFIG.GAME_WIDTH / 5;
         this.width = (laneWidth - 20) * widthMultiplier; // Leave small gaps between lanes, apply multiplier
         this.height = 30;
 
@@ -460,21 +460,21 @@ export class Wall {
 
     /**
      * Get the center X position for a given lane
-     * @param {number} lane - Lane index (0, 1, or 2)
+     * @param {number} lane - Lane index (0-4)
      * @returns {number} Center X position
      */
     static getLaneX(lane) {
-        const laneWidth = CONFIG.GAME_WIDTH / 3;
+        const laneWidth = CONFIG.GAME_WIDTH / 5;
         return laneWidth * lane + laneWidth / 2;
     }
 
     /**
      * Get the lane index for a given X position
      * @param {number} x - X position
-     * @returns {number} Lane index (0, 1, or 2)
+     * @returns {number} Lane index (0-4)
      */
     static getLaneFromX(x) {
-        const laneWidth = CONFIG.GAME_WIDTH / 3;
+        const laneWidth = CONFIG.GAME_WIDTH / 5;
         return Math.floor(x / laneWidth);
     }
 

@@ -694,6 +694,16 @@ class Game {
                 const result = this.editorUI.handleTap(target.x, target.y);
                 if (result === 'exit') {
                     this.exitEditor();
+                } else if (result === 'save_and_play') {
+                    const levelInfo = this.editor.saveAndPlay();
+                    this.audio.playPowerUp();
+                    // Load and start playing the level immediately
+                    if (this.customLevel.loadLevelData(levelInfo.name, levelInfo.data)) {
+                        this.editorUI.hide();
+                        this.reset();
+                        this.state = 'customPlaying';
+                        this.music.startNormalMusic();
+                    }
                 } else if (result === 'save') {
                     this.audio.playPowerUp();
                 } else if (result === 'placed') {
@@ -3203,7 +3213,7 @@ class Game {
         this.haptics.heavy();
 
         // Save high score
-        const modeKey = this.gameMode.getCurrentMode();
+        const modeKey = this.gameMode.currentMode;
         const isNewHigh = this.save.addHighScore(modeKey, this.score, this.currentWave, Math.floor(this.playTime));
         if (isNewHigh) {
             this.isNewLevelHighScore = true;
