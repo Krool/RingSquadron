@@ -3143,7 +3143,7 @@ class Game {
 
         // In Chase Swarm and Clear Columns modes, increase game speed by 10% for each power-up collected
         if (this.gameMode.getRules().isChaseSwarm || this.gameMode.getRules().isClearColumns) {
-            this.powerUpSpeedBonus += 0.10;
+            this.powerUpSpeedBonus += 0.05;
         }
 
         this.audio.playPowerUp();
