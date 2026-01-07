@@ -1494,8 +1494,14 @@ class Game {
         const hasSpread = this.powerUpManager.hasSpreadShot();
 
         // Update player with weapon system - only move while dragging
-        const target = this.input.isActive() ? this.input.getTarget() : null;
+        // During victory sequence, ignore input and keep ship pointing up
+        const target = (this.victorySequenceTimer > 0) ? null : (this.input.isActive() ? this.input.getTarget() : null);
         const playerBullets = this.player.update(dt, target, currentTime);
+
+        // Force ship to face up during victory sequence
+        if (this.victorySequenceTimer > 0) {
+            this.player.facingUp = true;
+        }
 
         // In Swarm mode, collect auto-fire bullets from player.update()
         if (rules.isSwarm && playerBullets.length > 0) {
@@ -2409,36 +2415,40 @@ class Game {
                 }
             }
 
-            // Swarm enemies vs player (deal 1 damage, die)
-            for (let i = this.swarmEnemies.length - 1; i >= 0; i--) {
-                const enemy = this.swarmEnemies[i];
-                if (CollisionSystem.checkAABB(this.player.getBounds(), enemy.getBounds())) {
-                    this.swarmEnemies.splice(i, 1);
-                    this.swarmLives--;
-                    this.particles.damageHit(this.player.x, this.player.y);
-                    this.audio.playDamage();
-                    this.screenFx.shake(10, 0.3);
-                    this.floatingText.add(this.player.x, this.player.y - 40, `${this.swarmLives} LIVES`, {
-                        color: '#ffdd00',
-                        size: 14,
-                        duration: 1000
-                    });
+            // Swarm enemies vs player (deal 1 damage, die) (skip during victory sequence)
+            if (!this.victoryAchieved) {
+                for (let i = this.swarmEnemies.length - 1; i >= 0; i--) {
+                    const enemy = this.swarmEnemies[i];
+                    if (CollisionSystem.checkAABB(this.player.getBounds(), enemy.getBounds())) {
+                        this.swarmEnemies.splice(i, 1);
+                        this.swarmLives--;
+                        this.particles.damageHit(this.player.x, this.player.y);
+                        this.audio.playDamage();
+                        this.screenFx.shake(10, 0.3);
+                        this.floatingText.add(this.player.x, this.player.y - 40, `${this.swarmLives} LIVES`, {
+                            color: '#ffdd00',
+                            size: 14,
+                            duration: 1000
+                        });
 
-                    if (this.swarmLives <= 0) {
-                        this.player.active = false;
-                        this.state = 'gameover';
+                        if (this.swarmLives <= 0) {
+                            this.player.active = false;
+                            this.state = 'gameover';
+                        }
                     }
                 }
             }
 
-            // Swarm boss vs player (instant kill)
-            for (const boss of this.swarmBosses) {
-                if (CollisionSystem.checkAABB(this.player.getBounds(), boss.getBounds())) {
-                    this.player.active = false;
-                    this.state = 'gameover';
-                    this.particles.explosion(this.player.x, this.player.y, 3);
-                    this.audio.playExplosion();
-                    this.screenFx.shake(30, 1.0);
+            // Swarm boss vs player (instant kill) (skip during victory sequence)
+            if (!this.victoryAchieved) {
+                for (const boss of this.swarmBosses) {
+                    if (CollisionSystem.checkAABB(this.player.getBounds(), boss.getBounds())) {
+                        this.player.active = false;
+                        this.state = 'gameover';
+                        this.particles.explosion(this.player.x, this.player.y, 3);
+                        this.audio.playExplosion();
+                        this.screenFx.shake(30, 1.0);
+                    }
                 }
             }
         }
@@ -2744,24 +2754,26 @@ class Game {
                 }
             }
 
-            // Swarm enemies vs player
-            for (let i = this.swarmEnemies.length - 1; i >= 0; i--) {
-                const enemy = this.swarmEnemies[i];
-                if (CollisionSystem.checkAABB(this.player.getBounds(), enemy.getBounds())) {
-                    this.swarmEnemies.splice(i, 1);
-                    this.swarmLives--;
-                    this.particles.damageHit(this.player.x, this.player.y);
-                    this.audio.playDamage();
-                    this.screenFx.shake(10, 0.3);
-                    this.floatingText.add(this.player.x, this.player.y - 40, `${this.swarmLives} LIVES`, {
-                        color: '#ffdd00',
-                        size: 14,
-                        duration: 1000
-                    });
+            // Swarm enemies vs player (skip during victory sequence)
+            if (!this.victoryAchieved) {
+                for (let i = this.swarmEnemies.length - 1; i >= 0; i--) {
+                    const enemy = this.swarmEnemies[i];
+                    if (CollisionSystem.checkAABB(this.player.getBounds(), enemy.getBounds())) {
+                        this.swarmEnemies.splice(i, 1);
+                        this.swarmLives--;
+                        this.particles.damageHit(this.player.x, this.player.y);
+                        this.audio.playDamage();
+                        this.screenFx.shake(10, 0.3);
+                        this.floatingText.add(this.player.x, this.player.y - 40, `${this.swarmLives} LIVES`, {
+                            color: '#ffdd00',
+                            size: 14,
+                            duration: 1000
+                        });
 
-                    if (this.swarmLives <= 0 && !this.victoryAchieved) {
-                        this.player.active = false;
-                        this.state = 'gameover';
+                        if (this.swarmLives <= 0) {
+                            this.player.active = false;
+                            this.state = 'gameover';
+                        }
                     }
                 }
             }
@@ -2777,24 +2789,26 @@ class Game {
                 }
             }
 
-            // Falling cargo ships (engine destroyed) vs player
-            for (const ship of this.cargoShips) {
-                if (!ship.active || !ship.engineDestroyed) continue;
-                if (CollisionSystem.checkAABB(this.player.getBounds(), ship.getBounds())) {
-                    this.swarmLives--;
-                    ship.active = false;
-                    this.particles.explosion(ship.x, ship.y, 3);
-                    this.audio.playExplosion();
-                    this.screenFx.shake(15, 0.5);
-                    this.floatingText.add(this.player.x, this.player.y - 40, `${this.swarmLives} LIVES`, {
-                        color: '#ffdd00',
-                        size: 14,
-                        duration: 1000
-                    });
+            // Falling cargo ships (engine destroyed) vs player (skip during victory sequence)
+            if (!this.victoryAchieved) {
+                for (const ship of this.cargoShips) {
+                    if (!ship.active || !ship.engineDestroyed) continue;
+                    if (CollisionSystem.checkAABB(this.player.getBounds(), ship.getBounds())) {
+                        this.swarmLives--;
+                        ship.active = false;
+                        this.particles.explosion(ship.x, ship.y, 3);
+                        this.audio.playExplosion();
+                        this.screenFx.shake(15, 0.5);
+                        this.floatingText.add(this.player.x, this.player.y - 40, `${this.swarmLives} LIVES`, {
+                            color: '#ffdd00',
+                            size: 14,
+                            duration: 1000
+                        });
 
-                    if (this.swarmLives <= 0 && !this.victoryAchieved) {
-                        this.player.active = false;
-                        this.state = 'gameover';
+                        if (this.swarmLives <= 0) {
+                            this.player.active = false;
+                            this.state = 'gameover';
+                        }
                     }
                 }
             }
