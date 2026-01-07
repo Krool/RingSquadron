@@ -1005,8 +1005,8 @@ class Game {
                     this.redBoxSlowdownTimer -= dt;
                 }
 
-                // Check collision with player
-                if (this.redBox.checkPlayerCollision(this.player)) {
+                // Check collision with player - only if not in victory state
+                if (this.redBox.checkPlayerCollision(this.player) && this.state !== 'gameover') {
                     if (!this.playerInvincible && !this.gameMode.isInvincible()) {
                         // Player dies from red box
                         this.player.health = 0;
@@ -2482,8 +2482,8 @@ class Game {
                 }
             }
 
-            // Player vs red box (game over)
-            if (this.redBox && this.redBox.checkPlayerCollision(this.player)) {
+            // Player vs red box (game over) - only if not already in gameover (victory)
+            if (this.redBox && this.redBox.checkPlayerCollision(this.player) && this.state !== 'gameover') {
                 this.player.active = false;
                 this.state = 'gameover';
                 this.particles.explosion(this.player.x, this.player.y, 3);

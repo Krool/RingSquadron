@@ -230,7 +230,8 @@ export class CustomLevelManager {
                         spawn.def.lane,
                         spawn.def.type || 'SOLID',
                         spawn.def.value || null,  // hitsRequired for DESTRUCTIBLE/HIT_COUNTER_PUSH
-                        spawn.def.width || 1.0    // widthMultiplier (0.5 = half, 1.0 = full)
+                        spawn.def.width || 1.0,   // widthMultiplier (0.5 = half, 1.0 = full)
+                        5                         // laneCount = 5 for custom levels
                     );
                     walls.push(wall);
                     this.waveWalls.push(wall);
