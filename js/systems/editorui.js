@@ -451,7 +451,7 @@ export class EditorUI {
         const wave = this.editor.getCurrentWave();
         const scrollOffset = this.editor.scrollOffset;
         const editHeight = this.editAreaHeight;
-        const laneWidth = this.editAreaWidth / 3;
+        const laneWidth = this.editAreaWidth / 5;
 
         // Clip to edit area
         ctx.save();
@@ -467,7 +467,8 @@ export class EditorUI {
         wave.walls.forEach(w => {
             const x = laneWidth * w.lane + laneWidth / 2;
             const screenY = toScreenY(w.y || 60);
-            const width = laneWidth - 20;
+            const widthMultiplier = w.width || 1.0;
+            const width = (laneWidth - 20) * widthMultiplier;
             const wallType = WALL_TYPES[w.type] || WALL_TYPES.SOLID;
 
             // Only draw if visible

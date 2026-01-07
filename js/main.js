@@ -138,6 +138,7 @@ class Game {
             hasSpreadShot: false,
             hasRocketLauncher: false
         };
+        this.powerUpSpeedBonus = 0; // Cumulative speed increase from power-ups in Chase Swarm mode
 
         // Timing
         this.lastTime = 0;
@@ -281,6 +282,7 @@ class Game {
             this.multiplierGates = [];
             this.swarmLives = 5;
             this.permanentUpgrades = { wingmen: 0, hasSpreadShot: false, hasRocketLauncher: false };
+            this.powerUpSpeedBonus = 0;
             this.player.health = 1;  // 1 HP, lives system
             this.player.allowVerticalMovement = true;  // Allow full movement in Swarm mode
             // Double fire rate (100% faster shooting)
@@ -291,6 +293,7 @@ class Game {
             this.powerupCrates = [];
             this.pushWalls = [];
             this.multiplierGates = [];
+            this.powerUpSpeedBonus = 0;
             // Reset fire rate to default for non-Swarm modes
             this.player.fireRate = CONFIG.PLAYER_FIRE_RATE;
         }
@@ -307,6 +310,7 @@ class Game {
             this.swarmLives = 5;
             this.redBoxEnemySpeedBoost = 1.0;  // Tracks speed boost from enemies reaching red box
             this.permanentUpgrades = { wingmen: 0, hasSpreadShot: false, hasRocketLauncher: false };
+            this.powerUpSpeedBonus = 0;
             this.player.health = 1;  // 1 HP, lives system
             this.player.allowVerticalMovement = true;
             this.player.allowShipRotation = true;  // Enable ship rotation for Chase Swarm
@@ -435,7 +439,7 @@ class Game {
         const scaledDelta = deltaTime * this.screenFx.getTimeScale();
 
         // Always update stars and screen effects (use player boost speed)
-        const starSpeedMultiplier = this.player ? this.player.getSpeedMultiplier() : 1.0;
+        const starSpeedMultiplier = this.player ? (this.player.getSpeedMultiplier() + this.powerUpSpeedBonus) : 1.0;
         this.renderer.updateStars(scaledDelta, starSpeedMultiplier);
         this.screenFx.update(scaledDelta);
         this.particles.update(scaledDelta);
@@ -797,7 +801,7 @@ class Game {
         const dt = Math.min(deltaTime, 50);
 
         // Calculate boosted dt for scrolling entities
-        const speedMultiplier = this.player.getSpeedMultiplier();
+        const speedMultiplier = this.player.getSpeedMultiplier() + this.powerUpSpeedBonus;
         const boostedDt = dt * speedMultiplier;
 
         // Check for pause button tap first
@@ -939,7 +943,7 @@ class Game {
 
         // Calculate boosted dt for scrolling entities (enemies, rings, walls)
         // This makes everything scroll faster when boosted
-        const speedMultiplier = this.player.getSpeedMultiplier();
+        const speedMultiplier = this.player.getSpeedMultiplier() + this.powerUpSpeedBonus;
         const boostedDt = dt * speedMultiplier;
 
         // Check for pause button tap first
@@ -1889,7 +1893,7 @@ class Game {
                     this.haptics.light();
 
                     // Show speed multiplier
-                    const speedMult = this.player.getSpeedMultiplier();
+                    const speedMult = this.player.getSpeedMultiplier() + this.powerUpSpeedBonus;
                     this.floatingText.add(this.player.x, this.player.y - 30, `${speedMult.toFixed(1)}x SPEED`, {
                         color: '#88ff88',
                         size: 12,
@@ -2898,6 +2902,12 @@ class Game {
                 this.screenFx.flash('#ff3300', 0.3);
                 break;
         }
+
+        // In Chase Swarm mode, increase game speed by 3% for each power-up collected
+        if (this.gameMode.getRules().isChaseSwarm) {
+            this.powerUpSpeedBonus += 0.03;
+        }
+
         this.audio.playPowerUp();
     }
 
