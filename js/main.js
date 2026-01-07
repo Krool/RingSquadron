@@ -3213,9 +3213,13 @@ class Game {
         this.haptics.heavy();
 
         // Save high score
-        const modeKey = this.gameMode.currentMode;
-        const isNewHigh = this.save.addHighScore(modeKey, this.score, this.currentWave, Math.floor(this.playTime));
-        if (isNewHigh) {
+        const rank = this.save.saveHighScore({
+            score: this.score,
+            wave: this.currentWave,
+            kills: this.kills,
+            gameMode: this.gameMode.currentMode
+        });
+        if (rank > 0 && rank <= 10) {
             this.isNewLevelHighScore = true;
         }
         this.saveProgress();

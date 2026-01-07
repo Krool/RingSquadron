@@ -11,6 +11,7 @@ import { Ring } from '../entities/ring.js';
 import { Enemy } from '../entities/enemy.js';
 import { Wall } from '../entities/wall.js';
 import { SwarmBoss } from '../entities/swarmboss.js';
+import { PowerupCrate } from '../entities/powerupcrate.js';
 import { EditorSystem } from './editor.js';
 
 export class CustomLevelManager {
@@ -171,6 +172,19 @@ export class CustomLevelManager {
             }
         }
 
+        // Queue crates for spawning
+        if (wave.crates) {
+            for (const crateDef of wave.crates) {
+                const spawnDelay = ((crateDef.y || 0) / scrollSpeed) * 1000;
+                this.pendingSpawns.push({
+                    type: 'crate',
+                    spawnTime: currentTime + spawnDelay,
+                    def: crateDef,
+                    x: crateDef.x * gameWidth  // Normalized X to actual X
+                });
+            }
+        }
+
         // Sort by spawn time so earlier spawns are processed first
         this.pendingSpawns.sort((a, b) => a.spawnTime - b.spawnTime);
     }
@@ -220,6 +234,15 @@ export class CustomLevelManager {
                     );
                     walls.push(wall);
                     this.waveWalls.push(wall);
+                    break;
+                }
+                case 'crate': {
+                    const crate = new PowerupCrate(
+                        spawn.x,
+                        spawn.def.type,
+                        spawn.def.hits || 15
+                    );
+                    walls.push(crate);  // Add to walls array (they're both obstacles)
                     break;
                 }
             }

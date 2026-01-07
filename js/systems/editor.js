@@ -24,14 +24,19 @@ export class EditorSystem {
         // Level settings
         this.chaseMode = false;  // Enable Chase mode (red box)
         this.allowVerticalMovement = false;  // Allow player Y dragging
+        this.swarmMode = false;  // Enable continuous swarm enemy spawning
+        this.ricochetMode = false;  // Bullets bounce off solid walls and screen edges
+        this.fingerUpTurnAround = false;  // Turn around to shoot backwards when finger lifts
 
         // Tool selection
-        this.selectedTool = 'ring';  // 'ring', 'enemy', 'wall', 'gate_x2', 'gate_div', 'erase'
+        this.selectedTool = 'ring';  // 'ring', 'enemy', 'wall', 'gate_x2', 'gate_div', 'crate', 'erase'
         this.selectedEnemyType = 'BASIC';
         this.selectedRingValue = 3;
         this.selectedWallType = 'SOLID';
         this.selectedWallValue = 15;  // For DESTRUCTIBLE/HIT_COUNTER_PUSH
         this.selectedWallWidth = 1.0;  // 1.0 = full width, 0.5 = half width
+        this.selectedCrateType = 'wingman';  // 'wingman', 'spread', 'rocket'
+        this.selectedCrateHits = 15;  // Hits required to unlock
 
         // Grid settings
         this.gridSize = 40;
@@ -60,7 +65,8 @@ export class EditorSystem {
             rings: [],    // { x: 0-1 normalized, y: spawn Y, value: number, path: string }
             enemies: [],  // { x: 0-1 normalized, y: spawn Y, type: string }
             walls: [],    // { lane: 0-4, y: spawn Y }
-            gates: []     // { x: 0-1 normalized, y: spawn Y, type: 'multiply' | 'divide' }
+            gates: [],    // { x: 0-1 normalized, y: spawn Y, type: 'multiply' | 'divide' }
+            crates: []    // { x: 0-1 normalized, y: spawn Y, type: 'wingman'|'spread'|'rocket', hits: number }
         };
     }
 
@@ -198,6 +204,21 @@ export class EditorSystem {
                 });
                 break;
 
+            case 'crate':
+                // Check for existing crate at this position
+                const existingCrate = wave.crates.findIndex(c =>
+                    Math.abs(c.x - normalizedX) < 0.1 && Math.abs(c.y - snappedY) < 30
+                );
+                if (existingCrate < 0) {
+                    wave.crates.push({
+                        x: normalizedX,
+                        y: snappedY,
+                        type: this.selectedCrateType,
+                        hits: this.selectedCrateHits
+                    });
+                }
+                break;
+
             case 'erase':
                 this.eraseAt(x, y, editAreaWidth, editAreaHeight);
                 break;
@@ -234,6 +255,11 @@ export class EditorSystem {
         const lane = Math.floor(normalizedX * 5);
         wave.walls = wave.walls.filter(w =>
             w.lane !== lane || Math.abs(w.y - worldY) > yTolerance
+        );
+
+        // Erase crates
+        wave.crates = wave.crates.filter(c =>
+            Math.abs(c.x - normalizedX) > tolerance || Math.abs(c.y - worldY) > yTolerance
         );
     }
 
@@ -325,6 +351,27 @@ export class EditorSystem {
         this.selectedWallWidth = this.selectedWallWidth === 1.0 ? 0.5 : 1.0;
     }
 
+    // Cycle through crate types
+    cycleCrateType(direction = 1) {
+        const types = ['wingman', 'spread', 'rocket'];
+        const currentIndex = types.indexOf(this.selectedCrateType);
+        const newIndex = (currentIndex + direction + types.length) % types.length;
+        this.selectedCrateType = types[newIndex];
+    }
+
+    // Set crate hits required
+    setCrateHits(value) {
+        this.selectedCrateHits = Math.max(1, Math.min(999, value));
+    }
+
+    incrementCrateHits() {
+        this.setCrateHits(this.selectedCrateHits + 5);
+    }
+
+    decrementCrateHits() {
+        this.setCrateHits(this.selectedCrateHits - 5);
+    }
+
     // Set level name
     setLevelName(name) {
         this.levelName = name.trim() || 'Untitled';
@@ -345,6 +392,27 @@ export class EditorSystem {
         return this.allowVerticalMovement;
     }
 
+    // Toggle swarm mode
+    toggleSwarmMode() {
+        this.swarmMode = !this.swarmMode;
+        this.isDirty = true;
+        return this.swarmMode;
+    }
+
+    // Toggle ricochet mode
+    toggleRicochetMode() {
+        this.ricochetMode = !this.ricochetMode;
+        this.isDirty = true;
+        return this.ricochetMode;
+    }
+
+    // Toggle finger up turn around
+    toggleFingerUpTurnAround() {
+        this.fingerUpTurnAround = !this.fingerUpTurnAround;
+        this.isDirty = true;
+        return this.fingerUpTurnAround;
+    }
+
     // Serialize level for storage
     serialize() {
         return {
@@ -355,11 +423,15 @@ export class EditorSystem {
                 rings: [...wave.rings],
                 enemies: [...wave.enemies],
                 walls: [...wave.walls],
-                gates: [...wave.gates]
+                gates: [...wave.gates],
+                crates: [...(wave.crates || [])]
             })),
             settings: {
                 chaseMode: this.chaseMode,
-                allowVerticalMovement: this.allowVerticalMovement
+                allowVerticalMovement: this.allowVerticalMovement,
+                swarmMode: this.swarmMode,
+                ricochetMode: this.ricochetMode,
+                fingerUpTurnAround: this.fingerUpTurnAround
             },
             createdAt: Date.now()
         };
@@ -394,12 +466,16 @@ export class EditorSystem {
             rings: wave.rings || [],
             enemies: wave.enemies || [],
             walls: wave.walls || [],
-            gates: wave.gates || []
+            gates: wave.gates || [],
+            crates: wave.crates || []
         }));
 
         // Load level settings (with defaults for backward compatibility)
         this.chaseMode = data.settings?.chaseMode || false;
         this.allowVerticalMovement = data.settings?.allowVerticalMovement || false;
+        this.swarmMode = data.settings?.swarmMode || false;
+        this.ricochetMode = data.settings?.ricochetMode || false;
+        this.fingerUpTurnAround = data.settings?.fingerUpTurnAround || false;
 
         this.currentWaveIndex = 0;
         this.isDirty = false;
@@ -474,7 +550,8 @@ export class EditorSystem {
             rings: wave.rings.length,
             enemies: wave.enemies.length,
             walls: wave.walls.length,
-            gates: wave.gates.length
+            gates: wave.gates.length,
+            crates: wave.crates.length
         };
     }
 
