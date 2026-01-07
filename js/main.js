@@ -3146,6 +3146,7 @@ class Game {
             ctx.font = `bold 16px ${CONFIG.FONT_FAMILY}`;
             ctx.textAlign = 'right';
             ctx.fillText(`LIVES: ${this.swarmLives}`, CONFIG.GAME_WIDTH - 10, 25);
+            ctx.textAlign = 'left'; // Reset to default
         }
 
         // Draw UI overlays
