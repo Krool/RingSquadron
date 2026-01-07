@@ -82,6 +82,23 @@ export const GAME_MODES = {
             canWin: true            // Victory possible by killing all enemies
         }
     },
+    CLEAR_COLUMNS: {
+        name: 'Clear Columns',
+        description: 'Column-based spawning tutorial mode',
+        icon: '|||',
+        rules: {
+            waves: Infinity,        // Not wave-based
+            lives: 5,               // 5 hits before death
+            goldMultiplier: 0,      // No gold
+            difficultyRamp: 'time', // Time-based scaling
+            bossEvery: 0,           // No traditional bosses
+            hasWalls: true,         // Push walls
+            noAllyRings: true,      // No rings
+            noShop: true,           // No shop
+            isClearColumns: true,   // Flag for Clear Columns-specific logic
+            canWin: true            // Victory possible by killing all enemies
+        }
+    },
     CUSTOM: {
         name: 'Custom Levels',
         description: 'Play user-created levels',
@@ -492,6 +509,7 @@ export class ModeSelectUI {
             CHASE: '#ff3333',       // Red for danger
             SWARM: '#ff66ff',       // Purple for swarm
             CHASE_SWARM: '#ff6633', // Orange-red for hybrid
+            CLEAR_COLUMNS: '#33ff88', // Green for tutorial/guidance
             CAMPAIGN: '#ffdd00',
             WALL: '#888899',
             EDITOR: '#ff8800',

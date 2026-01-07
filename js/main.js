@@ -319,6 +319,25 @@ class Game {
             this.player.fireRate = CONFIG.PLAYER_FIRE_RATE / 2;  // Double fire rate
         }
 
+        // Initialize Clear Columns mode entities (tutorial mode)
+        if (rules.isClearColumns) {
+            this.redBox = new RedBox(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'CHASE_SWARM_MODE');
+            this.cargoShips = [];
+            this.swarmEnemies = [];
+            this.swarmBosses = [];
+            this.pushWalls = [];
+            this.powerupCrates = [];
+            this.multiplierGates = [];
+            this.swarmLives = 5;
+            this.redBoxEnemySpeedBoost = 1.0;
+            this.permanentUpgrades = { wingmen: 0, hasSpreadShot: false, hasRocketLauncher: false };
+            this.powerUpSpeedBonus = 0;
+            this.player.health = 1;  // 1 HP, lives system
+            this.player.allowVerticalMovement = true;
+            this.player.allowShipRotation = true;  // Enable ship rotation for Clear Columns
+            this.player.fireRate = CONFIG.PLAYER_FIRE_RATE / 2;  // Double fire rate
+        }
+
         // Apply upgrades to player
         this.shop.applyUpgrades(this.player);
     }
@@ -1146,18 +1165,17 @@ class Game {
                 if (this.victorySequenceTimer <= 0) {
                     this.handleVictory();
                 }
-
-                // Skip normal update logic during victory sequence
-                return;
             }
 
-            // Update red box with enemy speed boost
-            if (this.redBox) {
-                const isSlowed = false;  // No slowdown mechanic in Chase Swarm
-                this.redBox.update(dt, 1, isSlowed, 0, this.redBoxEnemySpeedBoost);
-            }
+            // Skip enemy updates during victory sequence
+            if (this.victorySequenceTimer === 0) {
+                // Update red box with enemy speed boost
+                if (this.redBox) {
+                    const isSlowed = false;  // No slowdown mechanic in Chase Swarm
+                    this.redBox.update(dt, 1, isSlowed, 0, this.redBoxEnemySpeedBoost);
+                }
 
-            // Update cargo ships
+                // Update cargo ships
             for (let i = this.cargoShips.length - 1; i >= 0; i--) {
                 const ship = this.cargoShips[i];
                 ship.update(dt, dt, this.player.y);
@@ -1226,8 +1244,163 @@ class Game {
                 gate.update(dt);
             }
 
-            // Chase Swarm spawning
-            this.spawner.updateChaseSwarmSpawning(
+                // Chase Swarm spawning
+                this.spawner.updateChaseSwarmSpawning(
+                    gameTime,
+                    this.swarmEnemies,
+                    this.swarmBosses,
+                    this.cargoShips,
+                    this.pushWalls,
+                    this.powerupCrates,
+                    this.multiplierGates
+                );
+
+                // Check for victory condition: after 30 seconds, all enemies defeated
+                if (gameTime >= 30000 &&
+                    this.swarmEnemies.length === 0 &&
+                    this.swarmBosses.length === 0 &&
+                    this.cargoShips.length === 0 &&
+                    this.victorySequenceTimer === 0) {
+                    // Start victory sequence
+                    this.victorySequenceTimer = 3000; // 3 seconds for sequence
+                    this.victoryAchieved = true; // Prevent death
+
+                    // Create massive explosions across the screen (enemies are already dead)
+                    // Create a grid of explosions for dramatic effect
+                    const explosionCount = 15;
+                    for (let i = 0; i < explosionCount; i++) {
+                        const x = Math.random() * CONFIG.GAME_WIDTH;
+                        const y = Math.random() * CONFIG.GAME_HEIGHT;
+                        const intensity = Math.floor(Math.random() * 2) + 2; // 2-3 intensity
+                        setTimeout(() => {
+                            this.particles.explosion(x, y, intensity);
+                        }, i * 100); // Stagger explosions over 1.5 seconds
+                    }
+
+                    // Clear all remaining enemies (should already be empty)
+                    this.swarmEnemies = [];
+                    this.swarmBosses = [];
+                    this.cargoShips = [];
+
+                    // Play victory sound and screen effects
+                    this.audio.playVictory();
+                    this.screenFx.flash('#00ff00', 1.0);
+                    this.haptics.heavy();
+                }
+            } // End of victorySequenceTimer === 0 check
+
+            // Enable bullet bouncing for player bullets
+            for (const bullet of this.playerBullets) {
+                bullet.canBounce = true;
+            }
+
+            // Update rocket explosion visuals
+            for (let i = this.rocketExplosions.length - 1; i >= 0; i--) {
+                const explosion = this.rocketExplosions[i];
+                explosion.time += dt;
+                explosion.radius = explosion.maxRadius * Math.min(explosion.time / 10, 1);  // Expand over 10 frames
+                explosion.alpha = Math.max(0, 1 - explosion.time / 15);  // Fade out over 15 frames
+
+                if (explosion.alpha <= 0) {
+                    this.rocketExplosions.splice(i, 1);
+                }
+            }
+        } else if (rules.isClearColumns) {
+            // Clear Columns mode: Tutorial mode with column-based spawning
+
+            // Handle victory sequence
+            if (this.victorySequenceTimer > 0) {
+                this.victorySequenceTimer -= dt;
+
+                // Make player fly upward off screen
+                this.player.y -= 200 * (dt / 1000);
+
+                // After sequence completes, go to victory screen
+                if (this.victorySequenceTimer <= 0) {
+                    this.handleVictory();
+                }
+
+                // Skip normal update logic during victory sequence
+                return;
+            }
+
+            // Update red box with enemy speed boost
+            if (this.redBox) {
+                const isSlowed = false;
+                this.redBox.update(dt, 1, isSlowed, 0, this.redBoxEnemySpeedBoost);
+            }
+
+            // Update cargo ships
+            for (let i = this.cargoShips.length - 1; i >= 0; i--) {
+                const ship = this.cargoShips[i];
+                ship.update(dt, dt, this.player.y);
+                if (!ship.active) {
+                    this.cargoShips.splice(i, 1);
+                }
+            }
+
+            // Update swarm enemies
+            for (let i = this.swarmEnemies.length - 1; i >= 0; i--) {
+                const enemy = this.swarmEnemies[i];
+                enemy.update(dt, this.player.x, this.player.y);
+
+                // Check if enemy reached red box
+                if (this.redBox && enemy.y >= this.redBox.y) {
+                    const cfg = CONFIG.CHASE_SWARM_MODE;
+                    this.redBoxEnemySpeedBoost += cfg.enemySpeedBoost;
+                    enemy.active = false;
+                }
+
+                if (!enemy.active) {
+                    this.swarmEnemies.splice(i, 1);
+                }
+            }
+
+            // Update swarm bosses
+            for (let i = this.swarmBosses.length - 1; i >= 0; i--) {
+                const boss = this.swarmBosses[i];
+                boss.update(dt, this.player.x, this.player.y);
+
+                // Check if boss reached red box - INSTANT GAME OVER
+                if (this.redBox && boss.y >= this.redBox.y) {
+                    this.redBox.makeUnstoppable();
+                    this.audio.playExplosion();
+                    this.particles.explosion(boss.x, boss.y, 5);
+                    this.screenFx.shake(30, 1.0);
+                    this.screenFx.flash('#ff0000', 0.8, 0.1);
+                    boss.active = false;
+                }
+
+                if (!boss.active) {
+                    this.swarmBosses.splice(i, 1);
+                }
+            }
+
+            // Update push walls
+            for (let i = this.pushWalls.length - 1; i >= 0; i--) {
+                const wall = this.pushWalls[i];
+                wall.update(dt, dt);
+                if (!wall.active) {
+                    this.pushWalls.splice(i, 1);
+                }
+            }
+
+            // Update powerup crates
+            for (let i = this.powerupCrates.length - 1; i >= 0; i--) {
+                const crate = this.powerupCrates[i];
+                crate.update(dt);
+                if (!crate.active) {
+                    this.powerupCrates.splice(i, 1);
+                }
+            }
+
+            // Update multiplier gates
+            for (const gate of this.multiplierGates) {
+                gate.update(dt);
+            }
+
+            // Clear Columns spawning
+            this.spawner.updateClearColumnsSpawning(
                 gameTime,
                 this.swarmEnemies,
                 this.swarmBosses,
@@ -1244,8 +1417,8 @@ class Game {
                 this.cargoShips.length === 0 &&
                 this.victorySequenceTimer === 0) {
                 // Start victory sequence
-                this.victorySequenceTimer = 3000; // 3 seconds for sequence
-                this.victoryAchieved = true; // Prevent death
+                this.victorySequenceTimer = 3000;
+                this.victoryAchieved = true;
 
                 // Create massive explosion that clears all remaining enemies
                 for (const enemy of this.swarmEnemies) {
@@ -1278,8 +1451,8 @@ class Game {
             for (let i = this.rocketExplosions.length - 1; i >= 0; i--) {
                 const explosion = this.rocketExplosions[i];
                 explosion.time += dt;
-                explosion.radius = explosion.maxRadius * Math.min(explosion.time / 10, 1);  // Expand over 10 frames
-                explosion.alpha = Math.max(0, 1 - explosion.time / 15);  // Fade out over 15 frames
+                explosion.radius = explosion.maxRadius * Math.min(explosion.time / 10, 1);
+                explosion.alpha = Math.max(0, 1 - explosion.time / 15);
 
                 if (explosion.alpha <= 0) {
                     this.rocketExplosions.splice(i, 1);
@@ -1358,7 +1531,7 @@ class Game {
             this.playerBullets.push(...playerBullets);
             this.audio.playShoot();
             this.haptics.light();
-        } else if (rules.isChaseSwarm && playerBullets.length > 0) {
+        } else if ((rules.isChaseSwarm || rules.isClearColumns) && playerBullets.length > 0 && this.victorySequenceTimer === 0) {
             // Apply spread shot if unlocked
             if (this.permanentUpgrades.hasSpreadShot) {
                 // Replace single bullet with spread3 pattern
@@ -1395,7 +1568,7 @@ class Game {
             this.playerBullets.push(...playerBullets);
             this.audio.playShoot();
             this.haptics.light();
-        } else if (!rules.isSwarm && !rules.isChaseSwarm) {
+        } else if (!rules.isSwarm && !rules.isChaseSwarm && !rules.isClearColumns) {
             // Check for swipe to cycle weapons (non-Swarm modes)
             const swipeDir = this.input.checkHorizontalSwipe();
             if (swipeDir !== 0) {
@@ -1437,8 +1610,8 @@ class Game {
         const allyDamageMult = this.getAllyDamageMultiplier();
         const activeAllyCount = this.allies.filter(a => a.active).length;
 
-        // Determine if allies should rotate with player (only Chase Swarm mode)
-        const allyFacingUp = rules.isChaseSwarm ? this.player.facingUp : true;
+        // Determine if allies should rotate with player (Chase Swarm and Clear Columns modes)
+        const allyFacingUp = (rules.isChaseSwarm || rules.isClearColumns) ? this.player.facingUp : true;
 
         // Only update/fire from displayed allies (capped at ALLY_DISPLAY_CAP)
         // Excess allies contribute to damage multiplier but don't fire
@@ -1470,6 +1643,7 @@ class Game {
                 // Apply damage multiplier from ally count scaling
                 for (const bullet of allyBullets) {
                     bullet.damage = Math.floor(bullet.damage * allyDamageMult);
+                    bullet.fromAlly = true; // Mark as wingman bullet
                 }
                 this.playerBullets.push(...allyBullets);
             }
@@ -2265,8 +2439,8 @@ class Game {
             }
         }
 
-        // Chase Swarm mode collisions
-        if (rules.isChaseSwarm) {
+        // Chase Swarm and Clear Columns mode collisions
+        if (rules.isChaseSwarm || rules.isClearColumns) {
             // Player bullets vs swarm enemies
             for (let i = this.playerBullets.length - 1; i >= 0; i--) {
                 const bullet = this.playerBullets[i];
@@ -2518,7 +2692,9 @@ class Game {
                     // Can't push if unstoppable
                     if (!this.redBox.unstoppable) {
                         const cfg = CONFIG.CHASE_SWARM_MODE;
-                        this.redBox.y += cfg.redBoxPushAmount;
+                        // Reduce push amount: player shots 75% reduction, wingmen shots 95% reduction
+                        let pushMultiplier = bullet.fromAlly ? 0.05 : 0.25;
+                        this.redBox.y += cfg.redBoxPushAmount * pushMultiplier;
                         if (this.redBox.y > CONFIG.GAME_HEIGHT) {
                             this.redBox.y = CONFIG.GAME_HEIGHT;
                         }
@@ -2945,8 +3121,8 @@ class Game {
                 break;
         }
 
-        // In Chase Swarm mode, increase game speed by 30% for each power-up collected (testing)
-        if (this.gameMode.getRules().isChaseSwarm) {
+        // In Chase Swarm and Clear Columns modes, increase game speed by 30% for each power-up collected
+        if (this.gameMode.getRules().isChaseSwarm || this.gameMode.getRules().isClearColumns) {
             this.powerUpSpeedBonus += 0.30;
         }
 
@@ -3064,8 +3240,8 @@ class Game {
             }
         }
 
-        // Draw Chase Swarm mode entities
-        if (rules.isChaseSwarm) {
+        // Draw Chase Swarm and Clear Columns mode entities
+        if (rules.isChaseSwarm || rules.isClearColumns) {
             // Draw red box (lowest layer)
             if (this.redBox) {
                 this.redBox.draw(this.renderer);
@@ -3205,7 +3381,7 @@ class Game {
         }
 
         // Draw Swarm lives counter
-        if (rules.isSwarm || rules.isChaseSwarm) {
+        if (rules.isSwarm || rules.isChaseSwarm || rules.isClearColumns) {
             ctx.fillStyle = '#ffffff';
             ctx.font = `bold 16px ${CONFIG.FONT_FAMILY}`;
             ctx.textAlign = 'right';

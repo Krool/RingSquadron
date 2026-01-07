@@ -1162,4 +1162,155 @@ export class SpawnerSystem {
         });
     }
 
+    // ========================================
+    // CLEAR COLUMNS MODE SPAWNING
+    // ========================================
+
+    /**
+     * Update Clear Columns mode spawning - column-based tutorial mode
+     * Left 3 columns: enemies, bosses, trucks, push walls
+     * 4th column: wingmen power ups (incrementing hit count, every second)
+     * 5th column (far right): split shot and rocket launcher power ups
+     */
+    updateClearColumnsSpawning(currentTime, swarmEnemies, swarmBosses, cargoShips, pushWalls, crates, multiplierGates) {
+        const cfg = CONFIG.CHASE_SWARM_MODE; // Reuse Chase Swarm config
+        const playTime = currentTime;
+
+        // Stop spawning new enemies after 30 seconds
+        const stopSpawningTime = 30000;
+
+        // Column width (5 columns total)
+        const columnWidth = this.gameWidth / 5;
+
+        // Spawn swarm enemies continuously in left 3 columns only
+        if (playTime < stopSpawningTime) {
+            this.swarmSpawnTimer += 16;
+            if (this.swarmSpawnTimer >= cfg.swarmSpawnRate) {
+                this.spawnClearColumnsWave(swarmEnemies, columnWidth);
+                this.swarmSpawnTimer = 0;
+            }
+        }
+
+        // Spawn cargo ships (trucks) in left 3 columns
+        if (!this.lastCargoSpawn) this.lastCargoSpawn = 0;
+        if (playTime < stopSpawningTime && playTime - this.lastCargoSpawn >= cfg.cargoShipBaseInterval) {
+            this.spawnClearColumnsCargoShip(cargoShips, columnWidth, 1);
+            this.lastCargoSpawn = playTime;
+        }
+
+        // Spawn push walls in left 3 columns
+        const pushWallInterval = 8000;
+        const timeSinceLastPushWall = playTime - this.lastPushWallSpawn;
+        if (this.lastPushWallSpawn === 0 && playTime >= 3000) {
+            const lane = Math.floor(Math.random() * 3); // Only lanes 0, 1, 2
+            this.spawnPushWall(pushWalls, 15, lane, cfg.pushWallWidthMultiplier);
+            this.lastPushWallSpawn = playTime;
+        } else if (timeSinceLastPushWall >= pushWallInterval && this.lastPushWallSpawn > 0) {
+            const wallCount = Math.floor((playTime - 3000) / pushWallInterval);
+            const lane = Math.floor(Math.random() * 3); // Only lanes 0, 1, 2
+            this.spawnPushWall(pushWalls, 15 + wallCount * 5, lane, cfg.pushWallWidthMultiplier);
+            this.lastPushWallSpawn = playTime;
+        }
+
+        // Spawn wingmen power ups in 4th column (column index 3), every second with incrementing hit count
+        if (!this.clearColumnsWingmanCount) this.clearColumnsWingmanCount = 0;
+        if (!this.clearColumnsLastWingmanSpawn) this.clearColumnsLastWingmanSpawn = 0;
+        const wingmanInterval = 1000; // Every second
+        if (playTime - this.clearColumnsLastWingmanSpawn >= wingmanInterval && playTime < stopSpawningTime) {
+            const column4X = columnWidth * 3.5; // Center of 4th column
+            const hitCount = 3 + this.clearColumnsWingmanCount; // Start at 3, increment each time
+            this.spawnPowerupCrate(crates, column4X, 'wingman', hitCount);
+            this.clearColumnsWingmanCount++;
+            this.clearColumnsLastWingmanSpawn = playTime;
+        }
+
+        // Spawn split shot in 5th column (far right) at T=6000ms
+        if (playTime >= 6000 && !this.clearColumnsSpreadShotSpawned) {
+            const column5X = columnWidth * 4.5; // Center of 5th column
+            this.spawnPowerupCrate(crates, column5X, 'spreadshot', 50);
+            this.clearColumnsSpreadShotSpawned = true;
+        }
+
+        // Spawn rocket launcher in 5th column (far right) at T=15000ms
+        if (playTime >= 15000 && !this.clearColumnsRocketSpawned) {
+            const column5X = columnWidth * 4.5; // Center of 5th column
+            this.spawnPowerupCrate(crates, column5X, 'rocket', 100);
+            this.clearColumnsRocketSpawned = true;
+        }
+
+        // Spawn first boss in left 3 columns (T=22000ms, 50 hits)
+        if (playTime >= 22000 && playTime < stopSpawningTime && this.bossIndex === 0) {
+            this.spawnClearColumnsBoss(swarmBosses, 50, columnWidth);
+            this.bossIndex++;
+            this.lastBossSpawn = playTime;
+        }
+
+        // Spawn second boss in left 3 columns (T=25000ms, 250 hits)
+        if (playTime >= 25000 && playTime < stopSpawningTime && this.bossIndex === 1) {
+            this.spawnClearColumnsBoss(swarmBosses, 250, columnWidth);
+            this.bossIndex++;
+            this.lastBossSpawn = playTime;
+        }
+
+        // Continue spawning bosses exponentially (every 15s) in left 3 columns
+        if (this.bossIndex >= 2 && playTime < stopSpawningTime && playTime - this.lastBossSpawn >= 15000) {
+            const health = Math.pow(2, this.bossIndex - 1) * 250;
+            this.spawnClearColumnsBoss(swarmBosses, health, columnWidth);
+            this.bossIndex++;
+            this.lastBossSpawn = playTime;
+        }
+
+        // Spawn multiplier gate (once, at start)
+        if (multiplierGates.length === 0) {
+            import('../entities/multipliergate.js').then(module => {
+                const MultiplierGate = module.MultiplierGate;
+                multiplierGates.push(new MultiplierGate(this.gameWidth, this.gameHeight, 2));
+            });
+        }
+    }
+
+    /**
+     * Spawn a wave of swarm enemies in left 3 columns only
+     */
+    spawnClearColumnsWave(swarmEnemies, columnWidth) {
+        import('../entities/swarmenemy.js').then(module => {
+            const SwarmEnemy = module.SwarmEnemy;
+            const cfg = CONFIG.CHASE_SWARM_MODE;
+            for (let i = 0; i < cfg.swarmPerSpawn; i++) {
+                // Random position in left 3 columns (0-2)
+                const column = Math.floor(Math.random() * 3);
+                const x = column * columnWidth + Math.random() * columnWidth;
+                const y = -10;
+                swarmEnemies.push(new SwarmEnemy(x, y, true)); // true = disable homing
+            }
+        });
+    }
+
+    /**
+     * Spawn a Clear Columns boss in left 3 columns only
+     */
+    spawnClearColumnsBoss(swarmBosses, health, columnWidth) {
+        import('../entities/swarmboss.js').then(module => {
+            const SwarmBoss = module.SwarmBoss;
+            // Random column in left 3 columns (0-2)
+            const column = Math.floor(Math.random() * 3);
+            const x = column * columnWidth + columnWidth / 2;
+            const y = -50;
+            swarmBosses.push(new SwarmBoss(x, y, health, true)); // true = disable homing
+        });
+    }
+
+    /**
+     * Spawn a cargo ship in left 3 columns only
+     */
+    spawnClearColumnsCargoShip(cargoShips, columnWidth, waveNumber) {
+        import('../entities/cargoship.js').then(module => {
+            const CargoShip = module.CargoShip;
+            const cfg = CONFIG.CHASE_SWARM_MODE;
+            const lane = Math.floor(Math.random() * 3); // Only lanes 0, 1, 2
+            const x = lane * columnWidth + columnWidth / 2;
+            cargoShips.push(new CargoShip(x, lane, waveNumber, cfg.cargoShipFallSpeedMultiplier));
+        });
+    }
+
 }
