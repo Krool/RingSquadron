@@ -103,6 +103,7 @@ class Game {
         this.isNewLevelHighScore = false; // Flag for displaying "NEW HIGH SCORE!"
         this.bossDefeated = false; // Track if boss was defeated this run
         this.victoryAchieved = false; // Flag to prevent death after victory
+        this.victorySequenceTimer = 0; // Timer for victory sequence animation
 
         // Entities
         this.player = new Player(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
@@ -236,6 +237,7 @@ class Game {
         this.isNewLevelHighScore = false;
         this.bossDefeated = false;
         this.victoryAchieved = false;
+        this.victorySequenceTimer = 0;
         this.player.reset(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
         this.allies = [];
         this.enemies = [];
@@ -1133,6 +1135,22 @@ class Game {
         } else if (rules.isChaseSwarm) {
             // Chase Swarm mode: Hybrid of Chase and Swarm mechanics
 
+            // Handle victory sequence
+            if (this.victorySequenceTimer > 0) {
+                this.victorySequenceTimer -= dt;
+
+                // Make player fly upward off screen
+                this.player.y -= 200 * (dt / 1000);
+
+                // After sequence completes, go to victory screen
+                if (this.victorySequenceTimer <= 0) {
+                    this.handleVictory();
+                }
+
+                // Skip normal update logic during victory sequence
+                return;
+            }
+
             // Update red box with enemy speed boost
             if (this.redBox) {
                 const isSlowed = false;  // No slowdown mechanic in Chase Swarm
@@ -1223,8 +1241,32 @@ class Game {
             if (gameTime >= 30000 &&
                 this.swarmEnemies.length === 0 &&
                 this.swarmBosses.length === 0 &&
-                this.cargoShips.length === 0) {
-                this.handleVictory();
+                this.cargoShips.length === 0 &&
+                this.victorySequenceTimer === 0) {
+                // Start victory sequence
+                this.victorySequenceTimer = 3000; // 3 seconds for sequence
+                this.victoryAchieved = true; // Prevent death
+
+                // Create massive explosion that clears all remaining enemies
+                for (const enemy of this.swarmEnemies) {
+                    this.particles.explosion(enemy.x, enemy.y, 2);
+                }
+                for (const boss of this.swarmBosses) {
+                    this.particles.explosion(boss.x, boss.y, 3);
+                }
+                for (const ship of this.cargoShips) {
+                    this.particles.explosion(ship.x, ship.y, 2);
+                }
+
+                // Clear all enemies
+                this.swarmEnemies = [];
+                this.swarmBosses = [];
+                this.cargoShips = [];
+
+                // Play victory sound and screen effects
+                this.audio.playVictory();
+                this.screenFx.flash('#00ff00', 1.0);
+                this.haptics.heavy();
             }
 
             // Enable bullet bouncing for player bullets
@@ -2903,9 +2945,9 @@ class Game {
                 break;
         }
 
-        // In Chase Swarm mode, increase game speed by 3% for each power-up collected
+        // In Chase Swarm mode, increase game speed by 30% for each power-up collected (testing)
         if (this.gameMode.getRules().isChaseSwarm) {
-            this.powerUpSpeedBonus += 0.03;
+            this.powerUpSpeedBonus += 0.30;
         }
 
         this.audio.playPowerUp();
