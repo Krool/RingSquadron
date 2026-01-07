@@ -2453,8 +2453,8 @@ class Game {
                     if (!this.redBox.unstoppable) {
                         const cfg = CONFIG.CHASE_SWARM_MODE;
                         this.redBox.y += cfg.redBoxPushAmount;
-                        if (this.redBox.y > CONFIG.GAME_HEIGHT - 50) {
-                            this.redBox.y = CONFIG.GAME_HEIGHT - 50;
+                        if (this.redBox.y > CONFIG.GAME_HEIGHT) {
+                            this.redBox.y = CONFIG.GAME_HEIGHT;
                         }
                         this.particles.spark(bullet.x, bullet.y, '#44ff44');
                     } else {
@@ -2484,8 +2484,8 @@ class Game {
                             // Engine destroyed: push red box down
                             const cfg = CONFIG.CHASE_SWARM_MODE;
                             this.redBox.y += cfg.redBoxPushAmount;
-                            if (this.redBox.y > CONFIG.GAME_HEIGHT - 50) {
-                                this.redBox.y = CONFIG.GAME_HEIGHT - 50;
+                            if (this.redBox.y > CONFIG.GAME_HEIGHT) {
+                                this.redBox.y = CONFIG.GAME_HEIGHT;
                             }
                             this.particles.explosion(ship.x, ship.y, 2);
                         } else {
