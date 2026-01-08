@@ -214,5 +214,29 @@ export class RedBox {
             ctx.textAlign = 'center';
             ctx.fillText(`SAFE: ${secondsLeft}s`, this.gameWidth / 2, topY - 20);
         }
+
+        // Height indicator number (0 at bottom, 1000 at top)
+        if (height > 0) {
+            const maxDistance = this.gameHeight - this.minY;
+            const currentDistance = this.gameHeight - this.y;
+            const displayNumber = Math.round((currentDistance / maxDistance) * 1000);
+
+            // Position at top of red box
+            const numberY = topY - 10;
+
+            // Draw with outline for visibility
+            ctx.font = `bold 20px ${CONFIG.FONT_FAMILY}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // Dark outline
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 4;
+            ctx.strokeText(displayNumber, this.gameWidth / 2, numberY);
+
+            // White fill
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(displayNumber, this.gameWidth / 2, numberY);
+        }
     }
 }
