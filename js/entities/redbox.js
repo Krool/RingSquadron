@@ -206,15 +206,6 @@ export class RedBox {
             ctx.globalAlpha = 1;
         }
 
-        // Safety period indicator
-        if (this.safetyTimer > 0) {
-            const secondsLeft = Math.ceil(this.safetyTimer / 1000);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = `${CONFIG.FONT_SIZE_HUD}px ${CONFIG.FONT_FAMILY}`;
-            ctx.textAlign = 'center';
-            ctx.fillText(`SAFE: ${secondsLeft}s`, this.gameWidth / 2, topY - 20);
-        }
-
         // Height indicator number (0 at bottom, 1000 at top)
         if (height > 0) {
             const maxDistance = this.gameHeight - this.minY;
