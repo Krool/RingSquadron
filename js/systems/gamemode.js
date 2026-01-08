@@ -3,8 +3,8 @@ import { CONFIG } from '../utils/config.js';
 
 export const GAME_MODES = {
     CAMPAIGN: {
-        name: 'Campaign',
-        description: 'Puzzle levels with red / blue gates (rings)',
+        name: 'Rings',
+        description: 'Puzzle levels with red / blue gates',
         icon: '!',
         rules: {
             waves: 12,
@@ -17,7 +17,7 @@ export const GAME_MODES = {
         }
     },
     WALL: {
-        name: 'Wall Mode',
+        name: 'Walls',
         description: 'Dodge indestructible walls',
         icon: '#',
         rules: {
