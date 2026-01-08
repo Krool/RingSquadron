@@ -221,8 +221,8 @@ export class RedBox {
             const currentDistance = this.gameHeight - this.y;
             const displayNumber = Math.round((currentDistance / maxDistance) * 1000);
 
-            // Position at top of red box
-            const numberY = topY - 10;
+            // Position inside red box at the top edge
+            const numberY = topY + 20;
 
             // Draw with outline for visibility
             ctx.font = `bold 20px ${CONFIG.FONT_FAMILY}`;
